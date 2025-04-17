@@ -42,35 +42,32 @@ em_conn12 = squeeze(data1.A_hat(1, 2, :));
 figure, plot(em_iter, em_conn12)
 title('Estimated Connection Strength 1 to 2 Evolution')
 
-%% A PARAMETRIZATION
-global A  S
-A = data1.A;
-Q = eye(size(A)) * data1.output.eff_conn.NoiseVar;
+%% MATRICES DEFINITION
+global A Q S P P_tau
+A = data1.A; % Effective connectivity
+Q = eye(size(A)) * data1.output.eff_conn.NoiseVar; % Noise correlation
+P = lyap(A, Q); % Zero-lag covariance
+S = 0.5 * (A*P - P*A'); % dC-Cov
+P_tau = @(tau) expm(A*tau) * P; % Lagged covariance
+
 TR = data1.TR;
-Sigma = lyap(A, Q);
-S = 0.5 * (A*Sigma - Sigma*A');
 
-%% PLAYING WITH TIME LAG
-conn_num = 3;%size(S, 1);
-time_int = 50;
-figure, tiledlayout(conn_num, conn_num, 'TileSpacing', 'compact', 'Padding', 'compact')
-for i = 1:conn_num
-    for j = 1:conn_num
-        nexttile, plot(lagged_covariance_values(i, j, time_int)); grid on;
-    end
-end
-
-%% PLAYING WITH DISTANCE
-
+%% DETERMINING TIME INTERVAL FOR LAGGED COVARIANCE
+time_int = 40; time_axis = linspace(0, time_int);
+lag_cov = calc_lagged_covariance(time_int);
+figure, tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact')
+conn34 = squeeze(lag_cov(3, 4, :));
+nexttile, plot(time_axis, conn34)
+conn12 = squeeze(lag_cov(1, 2, :));
+nexttile, plot(time_axis, conn12)
 
 %% FUNCTIONS
-function S_tau_values = lagged_covariance_values(row, col, time)
-    global A S
-    lagged_covariance = @(tau) expm(A*tau) * S;
+function P_tau_values = calc_lagged_covariance(time)
+    global P_tau
     tau_values = linspace(0, time);
-    S_tau_values = zeros(length(tau_values), 1);
+    [rown, coln] = size(P_tau(0));
+    P_tau_values = zeros(rown, coln, length(tau_values));
     for i = 1:length(tau_values)
-        S_tau_matrix = lagged_covariance(tau_values(i));
-        S_tau_values(i) = S_tau_matrix(row, col);
+        P_tau_values(:, :, i) = P_tau(tau_values(i));
     end
 end
