@@ -30,7 +30,7 @@ TR = data1.TR;
 %% MAX TIME LAG ESTIMATION
 max_lag = 50; num_lags = 50;
 tau_values = linspace(0, max_lag, num_lags);
-% TODO: 0 is covariance, don't know what the smallest one could be though
+% TODO: 0 is zero-lag covariance, don't know what the smallest one could be though
 
 P_matrices = lagcov(tau_values);
 figure, tiledlayout(1, 1, 'TileSpacing', 'compact', 'Padding', 'compact')
@@ -41,6 +41,7 @@ for i = 1:size(P_matrices, 1)
         plot(time_axis, conn), hold on
     end
 end
+xlabel('\tau'), ylabel('P_{ij}(\tau)'), title('Covariance evolution \forall(i,j)')
 % TODO: Decided upon 45
 
 %% DISTANCE BINNING (CLUSTERING)

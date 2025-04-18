@@ -74,7 +74,7 @@ for iSub = 1:numel(files)
         % fit only in your desired r‐range:
         fitR   = [8.13 33.82];
         idx    = centers>=fitR(1) & centers<=fitR(2);
-        p      = polyfit(log10(centers(idx)), log10(abs(B(idx))),1);
+        p      = polyfit(log10(centers(idx)), log10(abs(B(idx))),1); % TODO: now only absolute value!
         a_vec(k) = p(1);
     end
     
