@@ -79,7 +79,7 @@ for i = 1:num_lags
 
     % TODO: negative values ignored, gotta rescale?
     loglog(BINS.centers, abs(B)); % Log-log space plot
-    xlabel('log(r)'), ylabel('log|B(r;\tau)|')
+    xlabel('log(r)'), ylabel('log|B(r;\tau)|'), grid on
     % xlim([0 100]), ylim([0 1e-3])
     title(['Lagged covariance at \tau=' int2str(tau_values(i))]);
 

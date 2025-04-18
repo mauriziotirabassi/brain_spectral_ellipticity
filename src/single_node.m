@@ -74,7 +74,8 @@ for k = 1:nLags
     slopes(k)= p(1);
 
     % plot
-    clf; loglog(centers, abs(Bbin), 'b.-'); hold on;
+    % clf; 
+    loglog(centers, abs(Bbin), 'b.-'); hold on;
     loglog(x_fit, 10.^(polyval(p, log10(x_fit))), 'k--', 'LineWidth', 1.5);
     ylim([1e-10, 1e-3]), xlim([0, 70]) ; grid on;
     xlabel('Distance (mm)'); ylabel('|Covariance|');
