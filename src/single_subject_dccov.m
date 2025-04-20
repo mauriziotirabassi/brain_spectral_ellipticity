@@ -27,24 +27,24 @@ edges    = linspace(min(dvals),max(dvals),nbins+1);
 centers  = (edges(1:end-1)+edges(2:end))/2;
 
 %% LOOP OVER SUBJECTS
-max_lag  = 45;          % as decided
-nLags    = 100;
+max_lag  = 75;          % as decided
+nLags    = 200;
 tau_vals = linspace(0,max_lag,nLags);
 
 %- select subject number
 iSub = 1;
 
 %— load this subject’s fitted A, TR, noise variance
-S = load(fullfile(outDir,files{iSub}));
-A = S.A;
-Q = eye(n)*S.output.eff_conn.NoiseVar;
+subj = load(fullfile(outDir,files{iSub}));
+A = subj.A;
+Q = eye(n)*subj.output.eff_conn.NoiseVar;
 P = lyap(A,Q);
+S = 0.5 * (A * P - P * (A.'));
 P_tau = @(t) expm(A*t)*P;
 
 % symmetric and skew-symmetric generator decomposition
 A_sym   = -0.5 * Q / P;
-A_skew  = (A * P) - A_sym * P;
-A_skew  = A_skew / P;
+A_skew  = S / P;
 
 P_tau_sym  = @(t) expm(A_sym * t)  * P;
 P_tau_skew = @(t) expm(A_skew * t) * P;

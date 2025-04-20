@@ -39,12 +39,17 @@ subj     = load(fullfile(outDir,flist(iSub).name));
 A     = subj.A;
 Q     = eye(n)*subj.output.eff_conn.NoiseVar;
 Sigma = lyap(A,Q);
-P_tau = @(t) expm(A*t)*Sigma;
+S = 0.5 * (A * Sigma - Sigma * (A.'));
+A_sym   = -0.5 * Q / Sigma;
+A_skew  = S / Sigma;
+P_tau = @(t) expm(A*t)*P;
+P_tau_sym  = @(t) expm(A_sym * t)  * Sigma;
+P_tau_skew = @(t) expm(A_skew * t) * Sigma;
 
 % compute node-to-all covariances over time
 node_cov = nan(n-1, nLags);
 for k = 1:nLags
-    Pt           = P_tau(tau_vals(k));
+    Pt           = P_tau_skew(tau_vals(k));
     vec_all      = Pt(iNode,:).';    % n×1
     vec_all(iNode) = [];             % drop diagonal
     node_cov(:,k)= vec_all;          % store
@@ -75,8 +80,8 @@ for k = 1:nLags
 
     % plot
     % clf; 
-    loglog(centers, abs(Bbin), 'b.-'); hold on;
-    loglog(x_fit, 10.^(polyval(p, log10(x_fit))), 'k--', 'LineWidth', 1.5);
+    loglog(centers, abs(Bbin)); hold on;
+    loglog(x_fit, 10.^(polyval(p, log10(x_fit))), 'k--');
     ylim([1e-10, 1e-3]), xlim([0, 70]) ; grid on;
     xlabel('Distance (mm)'); ylabel('|Covariance|');
     title(sprintf('\\tau = %.2f,  slope \\alpha = %.3f', tau_vals(k), slopes(k)));
