@@ -19,7 +19,7 @@ mask     = ~eye(n);
 dvals    = Dfull(mask);
 
 % build your Freedman–Diaconis BINS just once
-logd     = log10(dvals);
+logd     = log(dvals);
 IQR      = prctile(logd,75) - prctile(logd,25);
 bw       = 2 * IQR / numel(logd)^(1/3);
 nbins    = ceil( (max(logd)-min(logd)) / bw );
@@ -43,7 +43,7 @@ S = 0.5 * (A * P - P * (A.'));
 P_tau = @(t) expm(A*t)*P;
 
 % symmetric and skew-symmetric generator decomposition
-A_sym   = -0.5 * Q / P;
+A_sym   = -0.5 * (Q / P);
 A_skew  = S / P;
 
 P_tau_sym  = @(t) expm(A_sym * t)  * P;
@@ -73,9 +73,9 @@ for k=1:nLags
         sel  = dvals>=edges(b) & dvals<edges(b+1);
         B(b) = mean(c_off(sel));
     end
-    fitR = [8.13 33.82];
+    fitR = [4.48, 12.18]; % [8.13 33.82]
     idx = centers>=fitR(1) & centers<=fitR(2);
-    p = polyfit(log10(centers(idx)), log10(abs(B(idx))),1);
+    p = polyfit(log(centers(idx)), log(abs(B(idx))),1);
     a_vec(k) = p(1);
 
     % SYMMETRIC dynamics
@@ -86,7 +86,7 @@ for k=1:nLags
         sel = dvals>=edges(b) & dvals<edges(b+1);
         B_sym(b) = mean(c_off_sym(sel));
     end
-    p_sym = polyfit(log10(centers(idx)), log10(abs(B_sym(idx))),1);
+    p_sym = polyfit(log(centers(idx)), log(abs(B_sym(idx))),1);
     a_sym_vec(k) = p_sym(1);
 
     % SKEW-SYMMETRIC dynamics
@@ -97,7 +97,7 @@ for k=1:nLags
         sel = dvals>=edges(b) & dvals<edges(b+1);
         B_skew(b) = mean(c_off_skew(sel));
     end
-    p_skew = polyfit(log10(centers(idx)), log10(abs(B_skew(idx))),1);
+    p_skew = polyfit(log(centers(idx)), log(abs(B_skew(idx))),1);
     a_skew_vec(k) = p_skew(1);
 end
 
@@ -108,5 +108,5 @@ plot(tau_vals, a_sym_vec, 'b--');
 plot(tau_vals, a_skew_vec, 'r--');
 legend('full A', 'symmetric part', 'skew-symmetric part');
 xlabel('\tau'); ylabel('Slope a(\tau)');
-title('Distance-decay exponent vs lag');
+title(sprintf('Distance-decay exponent vs lag in subject %d', iSub));
 grid on;

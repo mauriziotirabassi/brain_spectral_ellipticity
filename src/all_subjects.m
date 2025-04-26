@@ -30,7 +30,7 @@ mask     = ~eye(n);
 dvals    = Dfull(mask);
 
 % build your Freedman–Diaconis BINS just once
-logd     = log10(dvals);
+logd     = log(dvals);
 IQR      = prctile(logd,75) - prctile(logd,25);
 bw       = 2 * IQR / numel(logd)^(1/3);
 nbins    = ceil( (max(logd)-min(logd)) / bw );
@@ -72,9 +72,9 @@ for iSub = 1:numel(files)
         end
 
         % fit only in your desired r‐range:
-        fitR   = [8.13 33.82];
+        fitR   = [4.48, 12.18];
         idx    = centers>=fitR(1) & centers<=fitR(2);
-        p      = polyfit(log10(centers(idx)), log10(abs(B(idx))),1); % TODO: now only absolute value!
+        p      = polyfit(log(centers(idx)), log(abs(B(idx))),1); % TODO: now only absolute value!
         a_vec(k) = p(1);
     end
     
@@ -93,7 +93,7 @@ t = tiledlayout(nRows,nCols, ...
 
 for iSub = 1:nSubs
     ax = nexttile;
-    plot(ax, tau_vals, alpha_mat(iSub,:), 'b-','LineWidth',1);
+    plot(ax, tau_vals, alpha_mat(iSub,:), 'b-');
     xlim(ax, [min(tau_vals) max(tau_vals)]);
     ylim(ax, [min(alpha_mat(:)) max(alpha_mat(:))]);
     xlabel(ax, '\tau');

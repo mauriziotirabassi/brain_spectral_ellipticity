@@ -26,7 +26,7 @@ dist_node = Dfull(iNode,:).';
 dist_node(iNode) = []; % drop self‑distance, now dist_node is (n‑1)x1
 
 % bin the distance vector
-logd    = log10(dist_node);
+logd    = log(dist_node);
 IQR     = prctile(logd,75) - prctile(logd,25);
 bw      = 2 * IQR / numel(logd)^(1/3); 
 nbins   = ceil((max(logd)-min(logd))/bw); % Freedman–Diaconis 
@@ -66,11 +66,11 @@ for k = 1:nLags
     end
 
     % fit within Deco's [8.13 33.82] mm range
-    fitR   = [8.13 33.82];
+    fitR   = [8.13 33.82]; % [4.48, 12.18]
     idx    = centers>=fitR(1) & centers<=fitR(2);
     x_fit  = centers(idx);
     y_fit  = abs(Bbin(idx));
-    p      = polyfit(log10(x_fit), log10(y_fit), 1);
+    p      = polyfit(log(x_fit), log(y_fit), 1);
     slopes(k)= p(1);
 
     % plot

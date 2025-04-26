@@ -10,8 +10,8 @@ iSub   = 1;     % which .mat in outDir
 iNode  = 70;    % which row of P to inspect
 
 % lag parameters
-max_lag = 40;
-nLags   = 100;
+max_lag = 75;
+nLags   = 200;
 tau_vals= linspace(0,max_lag,nLags);
 
 %% PRELOAD
@@ -40,7 +40,7 @@ A     = subj.A;
 Q     = eye(n)*subj.output.eff_conn.NoiseVar;
 Sigma = lyap(A,Q);
 S = 0.5 * (A * Sigma - Sigma * (A.'));
-A_sym   = -0.5 * Q / Sigma;
+A_sym   = -0.5 * (Q / Sigma);
 A_skew  = S / Sigma;
 P_tau = @(t) expm(A*t)*P;
 P_tau_sym  = @(t) expm(A_sym * t)  * Sigma;
@@ -79,7 +79,7 @@ for k = 1:nLags
     slopes(k)= p(1);
 
     % plot
-    % clf; 
+    clf; 
     loglog(centers, abs(Bbin)); hold on;
     loglog(x_fit, 10.^(polyval(p, log10(x_fit))), 'k--');
     ylim([1e-10, 1e-3]), xlim([0, 70]) ; grid on;
@@ -111,7 +111,7 @@ figure('Color', 'w');
 axis equal off
 view(3); hold on
 xlabel('X'), ylabel('Y'), zlabel('Z');
-sgtitle(sprintf('Lagged covariance of node %d', iNode));
+sgtitle(sprintf('Lagged dC-Cov of node %d', iNode));
 
 % preplot all nodes as gray dots
 scatter3(Y(:,1), Y(:,2), Y(:,3), 36, [.7 .7 .7], 'filled');
