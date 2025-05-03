@@ -13,28 +13,27 @@ files = {d.name};
 % Euclidean‐distance matrix
 tmp      = load(distFile,'mtx_euc_dis');
 D        = tmp.mtx_euc_dis;
-Dfull    = D + D.';      % make symmetric
+Dfull    = D + D.';         % make symmetric
 n        = size(Dfull,1);
-mask     = ~eye(n);
+% mask     = ~eye(n);
+mask      = triu(true(n),1); % working with upper triangular
 dvals    = Dfull(mask);
 
-% build your Freedman–Diaconis BINS just once
-logd     = log(dvals);
-IQR      = prctile(logd,75) - prctile(logd,25);
-bw       = 2 * IQR / numel(logd)^(1/3);
-nbins    = ceil( (max(logd)-min(logd)) / bw );
-edges    = linspace(min(dvals),max(dvals),nbins+1);
-centers  = (edges(1:end-1)+edges(2:end))/2;
+% fitting range and indices
+fitR     = [4.48, 12.18];   % Benozzo
+% fitR     = [8.13 33.82];    % Deco
+sel      = dvals >= fitR(1) & dvals <= fitR(2);
 
-%% LOOP OVER SUBJECTS
-max_lag  = 75;          % as decided
+% simulation hyperparameters
+max_lag  = 75;
 nLags    = 200;
 tau_vals = linspace(0,max_lag,nLags);
 
-%- select subject number
+%% MATRICES
+% select subject number
 iSub = 1;
 
-%— load this subject’s fitted A, TR, noise variance
+% load this subject’s fitted A, TR, noise variance
 subj = load(fullfile(outDir,files{iSub}));
 A = subj.A;
 Q = eye(n)*subj.output.eff_conn.NoiseVar;
@@ -46,62 +45,89 @@ P_tau = @(t) expm(A*t)*P;
 A_sym   = -0.5 * (Q / P);
 A_skew  = S / P;
 
+% lagged dynamics
 P_tau_sym  = @(t) expm(A_sym * t)  * P;
 P_tau_skew = @(t) expm(A_skew * t) * P;
 
-%— stack all lagged covariances
-Ctens       = nan(n,n,nLags);
+% stds and normalization matrix
+stds       = sqrt(diag(P));     % n×1 vector of standard deviations
+normMat    = stds * stds.';     % n×n matrix where (i,j)=σ_i*σ_j
+
+% preallocate
+Ctens       = nan(n,n,nLags);  
 Ctens_sym   = nan(n,n,nLags);
 Ctens_skew  = nan(n,n,nLags);
-for k=1:nLags
-    Ctens(:,:,k)       = P_tau(tau_vals(k));
-    Ctens_sym(:,:,k)   = P_tau_sym(tau_vals(k));
-    Ctens_skew(:,:,k)  = P_tau_skew(tau_vals(k));
+
+% % abs
+% for k = 1:nLags
+%     t = tau_vals(k);
+%     Ctens(:,:,k)      = P_tau(t)      ./ normMat; % full covariance
+%     Ctens_sym(:,:,k)  = P_tau_sym(t)  ./ normMat; % symmetric part
+%     Ctens_skew(:,:,k) = P_tau_skew(t) ./ normMat; % skew-symmetric part
+% end
+
+% abs max between two symmetric parts
+for k = 1:nLags
+    t = tau_vals(k);
+
+    % full
+    C    = P_tau(t)      ./ normMat;
+    C    = max(C, C.');         % elementwise max of C_ij and C_ji
+    Ctens(:,:,k) = abs(C);
+
+    % symmetric part
+    Csym = P_tau_sym(t)  ./ normMat;
+    Csym = max(Csym, Csym.');
+    Ctens_sym(:,:,k) = abs(Csym);
+
+    % skew‐symmetric part
+    Csk  = P_tau_skew(t) ./ normMat;
+    Csk  = max(Csk, Csk.');
+    Ctens_skew(:,:,k) = abs(Csk);
 end
 
-%— now for each tau, bin the off‐diagonal P_ij(tau) against dvals
+%% PLOT FOR SINGLE TAU
+lag             = 20;
+y_all           = Ctens(:,:,lag);
+y_all           = y_all(mask);
+[d_sorted, idx] = sort(dvals);
+y_sorted        = y_all(idx);
+xmin            = log(fitR(1));
+xmax            = log(fitR(2));
+
+figure, plot(log(d_sorted), log(abs(y_sorted))), hold on;
+xline(xmin, 'r--'); xline(xmax, 'r--');
+xlabel('log(distance)'); ylabel('log(|covariance|)');
+title('Lag 1 (highlighted fitR interval)'); grid on;
+
+%% REGRESSION & SLOPE
+% preallocate exponent vectors
 a_vec       = nan(1,nLags);
 a_sym_vec   = nan(1,nLags);
 a_skew_vec  = nan(1,nLags);
 
-for k=1:nLags
+% regression
+for k = 1:nLags
     % FULL dynamics
-    cvals = Ctens(:,:,k);
-    c_off  = cvals(mask);
-    B = nan(1,nbins);
-    for b=1:nbins
-        sel  = dvals>=edges(b) & dvals<edges(b+1);
-        B(b) = mean(c_off(sel));
-    end
-    fitR = [4.48, 12.18]; % [8.13 33.82]
-    idx = centers>=fitR(1) & centers<=fitR(2);
-    p = polyfit(log(centers(idx)), log(abs(B(idx))),1);
-    a_vec(k) = p(1);
+    c_off     = Ctens(:,:,k);
+    c_off     = c_off(mask);
+    p         = polyfit(log(dvals(sel)), log(abs(c_off(sel))), 1);
+    a_vec(k)  = p(1);
 
     % SYMMETRIC dynamics
-    cvals_sym = Ctens_sym(:,:,k);
-    c_off_sym = cvals_sym(mask);
-    B_sym = nan(1,nbins);
-    for b=1:nbins
-        sel = dvals>=edges(b) & dvals<edges(b+1);
-        B_sym(b) = mean(c_off_sym(sel));
-    end
-    p_sym = polyfit(log(centers(idx)), log(abs(B_sym(idx))),1);
-    a_sym_vec(k) = p_sym(1);
+    c_off_sym      = Ctens_sym(:,:,k);
+    c_off_sym      = c_off_sym(mask);
+    p_sym          = polyfit(log(dvals(sel)), log(abs(c_off_sym(sel))), 1);
+    a_sym_vec(k)   = p_sym(1);
 
-    % SKEW-SYMMETRIC dynamics
-    cvals_skew = Ctens_skew(:,:,k);
-    c_off_skew = cvals_skew(mask);
-    B_skew = nan(1,nbins);
-    for b=1:nbins
-        sel = dvals>=edges(b) & dvals<edges(b+1);
-        B_skew(b) = mean(c_off_skew(sel));
-    end
-    p_skew = polyfit(log(centers(idx)), log(abs(B_skew(idx))),1);
-    a_skew_vec(k) = p_skew(1);
+    % SKEW‐SYMMETRIC dynamics
+    c_off_skew     = Ctens_skew(:,:,k);
+    c_off_skew     = c_off_skew(mask);
+    p_skew         = polyfit(log(dvals(sel)), log(abs(c_off_skew(sel))), 1);
+    a_skew_vec(k)  = p_skew(1);
 end
 
-% optional: plot the three together
+% plot the three together
 figure;
 plot(tau_vals, a_vec, 'k'); hold on
 plot(tau_vals, a_sym_vec, 'b--');
