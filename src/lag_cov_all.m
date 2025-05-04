@@ -26,7 +26,8 @@ mask    = ~eye(n);
 dvals   = Dfull(mask);
 
 % Fit‐range and fixed selection mask
-fitR    = [4.48, 12.18];
+fitR     = [4.48, 12.18];   % Benozzo
+% fitR     = [8.13 33.82];    % Deco
 sel     = dvals >= fitR(1) & dvals <= fitR(2);
 
 % Lags

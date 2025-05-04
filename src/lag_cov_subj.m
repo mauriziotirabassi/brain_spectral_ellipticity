@@ -58,7 +58,7 @@ Ctens       = nan(n,n,nLags);
 Ctens_sym   = nan(n,n,nLags);
 Ctens_skew  = nan(n,n,nLags);
 
-% % abs
+% % abs two points per distance value
 % for k = 1:nLags
 %     t = tau_vals(k);
 %     Ctens(:,:,k)      = P_tau(t)      ./ normMat; % full covariance
@@ -87,7 +87,7 @@ for k = 1:nLags
 end
 
 %% PLOT FOR SINGLE TAU
-lag             = 20;
+lag             = 1;
 y_all           = Ctens(:,:,lag);
 y_all           = y_all(mask);
 [d_sorted, idx] = sort(dvals);
