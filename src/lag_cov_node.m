@@ -12,7 +12,7 @@ tau_vals= linspace(0, max_lag, nLags);
 
 % subject and node
 iSub   = 1;             % which .mat in outDir
-iNode  = 1;            % which row of P to inspect
+iNode  = 70;            % which row of P to inspect
 
 % load Euclidean distances
 tmp    = load(distFile,'mtx_euc_dis');
@@ -102,7 +102,7 @@ slopes = nan(1, nLags);
 
 figure;
 for k = 1:nLags
-    cvec = nCov_skew(:, k);
+    cvec = nCov(:, k);
     x = log(dist_node);
     y = log(abs(cvec));
 
