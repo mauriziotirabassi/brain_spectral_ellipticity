@@ -173,7 +173,7 @@ for k = 1:numel(uniqueNets)
 
     % plot in next tile
     nexttile;
-    plot(tau, alpha, 'LineWidth',1);
+    plot(tau, alpha);
     title(netName, 'Interpreter','none');
     xlabel('\tau');
     ylabel('\alpha(\tau)');

@@ -20,19 +20,19 @@ mask      = triu(true(n),1); % working with upper triangular
 dvals    = Dfull(mask);
 
 % fitting range and indices
-fitR     = [2.90, 14.75];   % optimal from regression
-% fitR     = [4.48, 12.18];   % Benozzo
+% fitR     = [2.90, 14.75];   % optimal from regression
+fitR     = [4.48, 12.18];   % Benozzo
 % fitR     = [8.13 33.82];    % Deco
 sel      = dvals >= fitR(1) & dvals <= fitR(2);
 
 % simulation hyperparameters
-max_lag  = 75;
-nLags    = 200;
+max_lag  = 100;
+nLags    = 1001;
 tau_vals = linspace(0,max_lag,nLags);
 
 %% SINGLE SUBJECT DATA
 % select subject number
-iSub = 1;
+iSub = 13;
 
 % load this subject’s fitted A, TR, noise variance
 subj = load(fullfile(outDir,files{iSub}));
@@ -72,12 +72,12 @@ for k = 1:nLags
     t = tau_vals(k);
 
     % full
-    C    = P_tau(t)      ./ normMat;
-    C    = max(C, C.');         % elementwise max of C_ij and C_ji
-    Ctens(:,:,k) = abs(C);
+    C    = abs(P_tau(t)      ./ normMat);
+    % C    = max(C, C.');         % elementwise max of C_ij and C_ji
+    Ctens(:,:,k) = max(C, C.');
 
     % symmetric part
-    Csym = P_tau_sym(t)  ./ normMat;
+    Csym = abs(P_tau_sym(t)  ./ normMat);
     Csym = max(Csym, Csym.');
     Ctens_sym(:,:,k) = abs(Csym);
 
@@ -133,8 +133,8 @@ end
 % plot the three together
 figure;
 plot(tau_vals, a_vec, 'k'); hold on
-plot(tau_vals, a_sym_vec, 'b--');
-plot(tau_vals, a_skew_vec, 'r--');
+% plot(tau_vals, a_sym_vec, 'b--');
+% plot(tau_vals, a_skew_vec, 'r--');
 legend('full A', 'symmetric part', 'skew-symmetric part');
 xlabel('\tau'); ylabel('Slope a(\tau)');
 title(sprintf('Distance-decay exponent vs lag in subject %d', iSub));

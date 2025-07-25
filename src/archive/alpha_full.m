@@ -28,12 +28,12 @@ sel_up  = dvals_up >= fitR(1) & dvals_up <= fitR(2);
 sel_low = dvals_low >= fitR(1) & dvals_low <= fitR(2);
 
 % define signed lags
-max_lag = 50;
-nLags   = 200;
+max_lag = 100;
+nLags   = 1001;
 tau_vals= linspace(0, max_lag, nLags);
 
 % load model for selected subject
-iSub    = 1;
+iSub    = 13;
 subj    = load(fullfile(outDir,files{iSub}));
 A       = subj.A;
 Q       = eye(n) * subj.output.eff_conn.NoiseVar;
@@ -85,27 +85,27 @@ title('Scaling exponent \alpha vs signed time-lag \tau');
 grid on;
 
 %% FREQUENCY CONTENT OF ALPHA
-% TODO: better spectrum estimation
-% sampling parameters
-M       = length(tau);
-dt      = tau(2) - tau(1);        % assumed uniform spacing
-Fs      = 1/dt;                   % sampling frequency in 1/units_of_tau
-
-% FFT
-Y       = fft(alpha);
-P2      = abs(Y/M);               % two-sided spectrum (normalized)
-P1      = P2(1:floor(M/2)+1);     % one-sided spectrum
-P1(2:end-1) = 2*P1(2:end-1);      % account for energy in negative freqs
-
-% frequency axis
-f       = Fs*(0:floor(M/2))/M;    % in cycles per unit τ
-
-% plot
-figure, tiledlayout(2, 1)
-nexttile, plot(tau, alpha);
-xlabel('\tau'); ylabel('\alpha(\tau)');
-title('Original signal');
-nexttile, plot(f, P1);
-xlabel('Frequency (cycles per unit \tau)'); ylabel('|A(f)|');
-title('Single-sided amplitude spectrum of \alpha(\tau)');
-grid on;
+% % TODO: better spectrum estimation
+% % sampling parameters
+% M       = length(tau);
+% dt      = tau(2) - tau(1);        % assumed uniform spacing
+% Fs      = 1/dt;                   % sampling frequency in 1/units_of_tau
+% 
+% % FFT
+% Y       = fft(alpha);
+% P2      = abs(Y/M);               % two-sided spectrum (normalized)
+% P1      = P2(1:floor(M/2)+1);     % one-sided spectrum
+% P1(2:end-1) = 2*P1(2:end-1);      % account for energy in negative freqs
+% 
+% % frequency axis
+% f       = Fs*(0:floor(M/2))/M;    % in cycles per unit τ
+% 
+% % plot
+% figure, tiledlayout(2, 1)
+% nexttile, plot(tau, alpha);
+% xlabel('\tau'); ylabel('\alpha(\tau)');
+% title('Original signal');
+% nexttile, plot(f, P1);
+% xlabel('Frequency (cycles per unit \tau)'); ylabel('|A(f)|');
+% title('Single-sided amplitude spectrum of \alpha(\tau)');
+% grid on;
