@@ -47,7 +47,7 @@ for k = 1:nLags
 end
 
 %% SINGLE NETWORK TRIAL
-netId = 5;
+netId = 7;
 netName = uniqueNets{netId};
 idx     = find(ic == netId);           % lines for this network
 m       = numel(idx);              % number of nodes in this net
