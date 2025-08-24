@@ -23,7 +23,7 @@ dvals    = D(mask_u); % array of distances i to j
 
 % simulation variables
 global lambda sigma;
-lambda = 20; sigma = 2; 
+lambda = 10; sigma = 1; 
 
 %% TOY MODEL
 % extracting noise covariance out of one subject
@@ -43,11 +43,10 @@ stds       = sqrt(diag(Sigma));
 normMat    = stds * stds.'; % normalization matrix (Pearson correlation)
 
 % toy differential cross-covariance: sequence of nodes
-% omega = 1; % strength of rotation
 % S = zeros(n);
 % for i = 1:n-1
-%     S(i, i+1) = omega;
-%     S(i+1, i) = -omega;
+%     S(i, i+1) = lambda; % strength of rotation
+%     S(i+1, i) = -lambda;
 % end
 
 % omega scaling with distance
@@ -71,6 +70,8 @@ Sigma_tau = @(t) expm(A * t) * Sigma;
 max_lag  = 50;
 nLags    = 500;
 taus = linspace(0, max_lag, nLags);
+% taus = 0:(2*pi/lambda):500;
+% nLags = numel(taus);
 
 % create array of time-lagged covariance matrices (includes tau=0)
 Ctens       = nan(n,n,nLags);
@@ -102,12 +103,12 @@ slopes_lower = nan(1, nLags);
 
 % axes limits
 xlims = log([min(d_sorted), max(d_sorted)]);
-% ylims = [-15, 1];
-ylims = [-.6, .6];
+ylims = [-15, 1];
+% ylims = [-.6, .6];
 
 % differential cross-covariance threshold (given that those pairs do not
 % contribute to detecting travelling-wave-like behavior)
-threshold = 0.2;
+threshold = 0.1;
 
 % log-log plot over distance
 figure;
@@ -159,19 +160,19 @@ for k = 1:nLags
     slopes_lower(k) = p_l(1); % save tril slope
 
     % plot
-    nexttile(1), plot(x_u, y_u); hold on;
-    plot(xf_u, y_fit_u, 'r-', 'LineWidth', 1.5);
-    title(sprintf('\\tau = %.2f', taus(k)));
-    xlim(xlims); ylim(ylims); grid on;
-    hold off;
-
-    nexttile(2), plot(x_l, y_l); hold on;
-    plot(xf_l, y_fit_l, 'b-', 'LineWidth', 1.5);
-    xlim(xlims); ylim(ylims); grid on;
-    hold off;
-
-    drawnow;
-    pause(0.01);
+    % nexttile(1), plot(x_u, y_u); hold on;
+    % plot(xf_u, y_fit_u, 'r-', 'LineWidth', 1.5);
+    % title(sprintf('\\tau = %.2f', taus(k)));
+    % xlim(xlims); ylim(ylims); grid on;
+    % hold off;
+    % 
+    % nexttile(2), plot(x_l, y_l); hold on;
+    % plot(xf_l, y_fit_l, 'b-', 'LineWidth', 1.5);
+    % xlim(xlims); ylim(ylims); grid on;
+    % hold off;
+    % 
+    % drawnow;
+    % pause(0.01);
 end
 
 %% SLOPE VS LAG PLOT

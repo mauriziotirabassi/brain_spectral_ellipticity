@@ -94,12 +94,12 @@ for k = 1:nLags
     Csub(:,:,k) = reshape(Ctens(linIdxFull), m, m);
 
     % plot
-    % nexttile(1), imshow(Ctens, [])
-    % title(sprintf('Time-Lagged Covariance \\Sigma(\\tau) at lag \\tau = %.2f', taus(k)));
-    % nexttile(2), imshow(Csub(:,:,k), [])
-    % title(netName, 'Interpreter','none')
-    % drawnow
-    % pause(0.01)
+    nexttile(1), imshow(Ctens, [])
+    title(sprintf('Time-Lagged Covariance \\Sigma(\\tau) at lag \\tau = %.2f', taus(k)));
+    nexttile(2), imshow(Csub(:,:,k), [])
+    title(netName, 'Interpreter','none')
+    drawnow
+    pause(0.01)
 end
 
 %% SPATIO-TEMPORAL COVARIANCE SCALING
