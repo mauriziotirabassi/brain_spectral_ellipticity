@@ -54,30 +54,32 @@ title('Autonomous response (ode45)')
 % Animate state vector evolution
 animate3(y_aut)
 
-%% COVARIANCE DYNAMICS
-Sigma0 = cov(y_stoch);  % steady-state covariance (empirical estimate)
-
-Sigma_tau = @(tau) expm(A * tau) * Sigma0;
-stds       = sqrt(diag(Sigma0));
-normMat    = stds * stds.';
-
-maxLag = 500;  % number of lags to evaluate
+%% COVARIANCE MATRIX
+% Max lag has to be inferior to total simulation time (in transient)
+% because otherwise there wouldn't be enough data points to form the lagged
+% pair. If I choose maxLag > length(t) then I have empty plot.
+maxLag = 400;  % number of lags to evaluate
 lags = (0:maxLag) * tr;
 
 % Theoretical covariance
+Sigma_tau = @(tau) expm(A * tau) * Sigma;
+stds_th = sqrt(diag(Sigma));
+normMat_th = stds_th * stds_th.';
 Sigma_th = nan(n,n,numel(lags));
 for k = 1:numel(lags)
     tau = lags(k);
-    Sigma_th(:,:,k) = Sigma_tau(tau) ./ normMat; % Pearson correlation
+    Sigma_th(:,:,k) = Sigma_tau(tau) ./ normMat_th; % Pearson correlation
 end
 
 % Empirical covariance
+Sigma_emp0 = (y_stoch' * y_stoch) / size(y_stoch,1);
+stds_emp = sqrt(diag(Sigma_emp0));
+normMat_emp = stds_emp * stds_emp';
 Sigma_emp = nan(n,n,numel(lags));
-for k = 1:numel(lags)
-    tauSteps = round(lags(k)/tr);
-    X1 = y_stoch(1:end-tauSteps,:);
-    X2 = y_stoch(1+tauSteps:end,:);
-    Sigma_emp(:,:,k) = (X2')*X1 / (size(X1,1)-1); % E[x(t+tau)x(t)^T]
+for k = 0:maxLag
+    X = y_stoch(1:end-k, :);
+    X_lag = y_stoch(1+k:end, :);
+    Sigma_emp(:,:,k+1) = (X_lag' * X) / (size(y_stoch, 1) - k) ./ normMat_emp;
 end
 
 figure;
@@ -93,7 +95,7 @@ for i = 1:n
         end
     end
 end
-sgtitle('Lagged Covariance Evolution');
+sgtitle('Auto/Cross-Covariance');
 
 % for k = transient_length:(n_time + transient_length - 1)
 %     imshow(Ctens(:,:,k), [], 'InitialMagnification', 'fit')
@@ -101,6 +103,63 @@ sgtitle('Lagged Covariance Evolution');
 %     drawnow
 %     pause(0.01)
 % end
+
+%% PSD MATRIX
+Fs = 1 / tr;
+% FFT algorithm faster with power of 2
+Nfft = 2^nextpow2(maxLag + 1);
+freqs = Fs * (0:(Nfft/2)) / Nfft;
+omega = 2 * pi * freqs;
+
+% Theoretical PSD
+Phi_th = nan(n,n,length(freqs));
+for k = 1:length(freqs)
+    H = 1i * omega(k) * eye(n) - A;
+    H_inv = inv(H);
+    Phi_th(:,:,k) = H_inv * Sigma_w * (H_inv)';
+end
+
+% Empirical PSD
+y_freq = fft(y_stoch, Nfft);
+% Extract only positive frequencies
+halfIdx = 1:(Nfft/2 + 1);
+y_freq = y_freq(halfIdx, :);
+
+Phi_emp = nan(n,n,length(halfIdx));
+for k = 1:length(halfIdx)
+    Yf = y_freq(k, :).';
+    Phi_emp(:,:,k) = (Yf * Yf') / size(y_stoch, 1);
+end
+
+figure;
+for i = 1:n
+    for j = 1:n
+        subplot(n,n,(i-1)*n+j);
+        plot(omega, abs(squeeze(Phi_th(i,j,:))),'r-'); hold on;
+        plot(omega, abs(squeeze(Phi_emp(i,j,:))),'b--');
+        title(sprintf('\\Phi_{%d%d}(\\omega)',i,j));
+        xlabel('\omega'); grid on;
+        if i==1 && j==1
+            legend('Theory','Empirical');
+        end
+    end
+end
+sgtitle('Cross-Spectral Density Magnitude');
+
+figure;
+for i = 1:n
+    for j = 1:n
+        subplot(n,n,(i-1)*n + j);
+        plot(omega, unwrap(angle(squeeze(Phi_th(i,j,:)))),'r-'); hold on;
+        plot(omega, unwrap(angle(squeeze(Phi_emp(i,j,:)))),'b--');
+        title(sprintf('Phase of \\Phi_{%d%d}(\\omega)', i, j));
+        xlabel('\omega'); grid on;
+        if i==1 && j==1
+            legend('Theory','Empirical');
+        end
+    end
+end
+sgtitle('Cross-Spectral Density Phase');
 
 %% FUNCTIONS
 function animate3(data)
