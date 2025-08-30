@@ -4,10 +4,10 @@ rng(42);
 n = 3;
 I = eye(n);
 
-S = [ 0  -.1  0 ;
-      .1   0 -1;
-      0  1  0 ];
-% S = randn(n);
+% S = [ 0  -.1  0 ;
+%       .1   0 -1;
+%       0  1  0 ];
+S = randn(n);
 S = 0.5 * (S - S'); % Ensure skew-symmetry
 Sigma_w = 0.2 * I;
 Sigma = I;
@@ -31,10 +31,10 @@ y_stoch = y_stoch(transient_length + 1:end,:); % Remove transient
 % Plot the norm of the state vector
 figure, plot(t(transient_length + 1:end), vecnorm(y_stoch, 2, 2))
 xlabel('time'); ylabel('||x||_2');
-title('Autonomous response (ode45)')
+title('Stochastic Input Response')
 
 % Animate state vector evolution
-animate3(y_stoch)
+% animate3(y_stoch)
 
 % State evolution in 2D/3D after PCA
 % [coeff, score, latent, tsquared, explained, mu] = pca(y_sim);
@@ -52,7 +52,7 @@ xlabel('time'); ylabel('||x||_2');
 title('Autonomous response (ode45)')
 
 % Animate state vector evolution
-animate3(y_aut)
+% animate3(y_aut)
 
 %% COVARIANCE MATRIX
 % Max lag has to be inferior to total simulation time (in transient)
@@ -82,12 +82,28 @@ for k = 0:maxLag
     Sigma_emp(:,:,k+1) = (X_lag' * X) / (size(y_stoch, 1) - k) ./ normMat_emp;
 end
 
+% Extend to negative lags based on property C_ij(-tau) = C_ji(tau)
+lags_full = [-fliplr(lags(2:end)), lags]; % Symmetric lag vector
+Sigma_th_full = nan(n,n,numel(lags_full));
+Sigma_emp_full = nan(n,n,numel(lags_full));
+for i = 1:n
+    for j = 1:n
+        Cth_pos = squeeze(Sigma_th(i,j,:));
+        Cth_neg = squeeze(Sigma_th(j,i,2:end));
+        Sigma_th_full(i,j,:) = [flipud(Cth_neg); Cth_pos];
+
+        Cemp_pos = squeeze(Sigma_emp(i,j,:));
+        Cemp_neg = squeeze(Sigma_emp(j,i,2:end));
+        Sigma_emp_full(i,j,:) = [flipud(Cemp_neg); Cemp_pos];
+    end
+end
+
 figure;
 for i = 1:n
     for j = 1:n
         subplot(n,n,(i-1)*n+j);
-        plot(lags, squeeze(Sigma_th(i,j,:)),'r-'); hold on;
-        plot(lags, squeeze(Sigma_emp(i,j,:)),'b--');
+        plot(lags_full, squeeze(Sigma_th_full(i,j,:)),'r-'); hold on;
+        plot(lags_full, squeeze(Sigma_emp_full(i,j,:)),'b--');
         title(sprintf('\\Sigma_{%d%d}(\\tau)',i,j));
         xlabel('\tau'); grid on;
         if i==1 && j==1
@@ -96,6 +112,30 @@ for i = 1:n
     end
 end
 sgtitle('Auto/Cross-Covariance');
+
+figure;
+for i = 1:n
+    for j = 1:n
+        subplot(n,n,(i-1)*n+j);
+        Cth = squeeze(Sigma_th_full(i,j,:));
+        Cth_sym = 0.5 * (Cth + flipud(Cth));
+        Cth_asym = 0.5 * (Cth - flipud(Cth));
+        Cemp = squeeze(Sigma_emp_full(i,j,:));
+        Cemp_sym = 0.5 * (Cemp + flipud(Cemp));
+        Cemp_asym = 0.5 * (Cemp - flipud(Cemp));
+
+        plot(lags_full, Cth_sym, 'r-', 'LineWidth', 1.2); hold on;
+        plot(lags_full, Cth_asym, 'b-', 'LineWidth', 1.2);
+        plot(lags_full, Cemp_sym, 'r--');
+        plot(lags_full, Cemp_asym, 'b--');
+        title(sprintf('Sym/Asym C_{%d%d}(\\tau)', i, j));
+        xlabel('\tau'); grid on;
+        if i==1 && j==1
+            legend('Sym (th)','Asym (th)','Sym (emp)','Asym (emp)');
+        end
+    end
+end
+sgtitle('Symmetric (Even) vs Asymmetric (Odd) Covariance Components');
 
 % for k = transient_length:(n_time + transient_length - 1)
 %     imshow(Ctens(:,:,k), [], 'InitialMagnification', 'fit')
@@ -120,15 +160,14 @@ for k = 1:length(freqs)
 end
 
 % Empirical PSD
-y_freq = fft(y_stoch, Nfft);
-% Extract only positive frequencies
-halfIdx = 1:(Nfft/2 + 1);
-y_freq = y_freq(halfIdx, :);
-
-Phi_emp = nan(n,n,length(halfIdx));
-for k = 1:length(halfIdx)
-    Yf = y_freq(k, :).';
-    Phi_emp(:,:,k) = (Yf * Yf') / size(y_stoch, 1);
+window = hamming(256);
+noverlap = 128;
+Phi_emp = nan(n, n, Nfft/2+1);
+for i = 1:n
+    for j = 1:n
+        Pij = cpsd(y_stoch(:,i), y_stoch(:,j), window, noverlap, Nfft, Fs);
+        Phi_emp(i,j,:) = Pij;  % Complex cross-spectrum
+    end
 end
 
 figure;
@@ -160,6 +199,28 @@ for i = 1:n
     end
 end
 sgtitle('Cross-Spectral Density Phase');
+
+figure;
+for i = 1:n
+    for j = 1:n
+        subplot(n,n,(i-1)*n+j);
+        co_th = real(squeeze(Phi_th(i,j,:)));
+        quad_th = imag(squeeze(Phi_th(i,j,:)));
+        co_emp = real(squeeze(Phi_emp(i,j,:)));
+        quad_emp = imag(squeeze(Phi_emp(i,j,:)));
+
+        plot(omega, co_th, 'r-', 'LineWidth', 1.2); hold on;
+        plot(omega, quad_th, 'b-', 'LineWidth', 1.2);
+        plot(omega, co_emp, 'r--', 'LineWidth', 1);
+        plot(omega, quad_emp, 'b--', 'LineWidth', 1);
+        title(sprintf('Co/Quad Spectrum \\Phi_{%d%d}(\\omega)', i, j));
+        xlabel('\omega'); grid on;
+        if i==1 && j==1
+            legend('Co-spectrum (theory)','Quad (theory)','Co-spectrum (emp)','Quad (emp)');
+        end
+    end
+end
+sgtitle('Co- and Quadrature Spectra');
 
 %% FUNCTIONS
 function animate3(data)
