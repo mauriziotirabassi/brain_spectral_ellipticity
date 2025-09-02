@@ -1,7 +1,7 @@
 clear; clc; close all
 
 rng(42);
-n = 3;
+n = 70;
 I = eye(n);
 
 % S = [ 0  -.1  0 ;
@@ -40,6 +40,44 @@ title('Stochastic Input Response')
 % [coeff, score, latent, tsquared, explained, mu] = pca(y_sim);
 % y_reduced3 = score(:, 1:3); animate3(y_reduced3)
 % y_reduced2 = score(:, 1:2); animate2(y_reduced2)
+
+%% SYNCHRONIZATION
+% Filter to narrow band
+fpass = [0.1, 1.0];
+fs = 1 / tr;
+[b, a] = butter(4, fpass / (fs / 2), 'bandpass'); % 4th-order Butterworth filter
+y_filt = filtfilt(b, a, y_stoch);
+z = hilbert(y_filt);
+phi = angle(z);
+
+% figure, axis equal
+% theta = linspace(0, 2*pi, 100);
+% for k = 1:size(phi, 1)
+%     cla
+%     Rvec = mean(exp(1i*phi(k,:)));
+%     plot(cos(theta), sin(theta), 'k--'), hold on
+%     quiver(zeros(1,n), zeros(1,n), cos(phi(k,:)), sin(phi(k,:)), 0, 'b-')
+%     hold on
+%     quiver(0, 0, real(Rvec), imag(Rvec), 0, 'r', 'LineWidth', 2)
+%     title(sprintf('t = %.2f, |R| = %.2f', t(k), abs(Rvec)))
+%     drawnow, pause(.1)
+% end
+
+t_steady = t(transient_length + 1:end);
+R = abs(mean(exp(1i*phi(:,:)), 2));
+x = t_steady(:);
+r = R(:);
+win_sec = 30;
+dt = x(2)-x(1);
+w = max(1, round(win_sec / dt));
+mu = movmean(r, w);       % centered moving mean
+s  = movstd (r, w, 0);    % centered moving std (sample std)
+
+figure, hold on
+fill([x; flipud(x)], [mu+s; flipud(mu-s)], [0.9 0.9 1])
+plot(x, r, 'b'), plot(x, mu, 'r-', 'LineWidth', 2)
+yline(mean(r), 'k--', 'LineWidth', 2)                      
+xlabel('Time (s)'); ylabel('R(t)'); title('Moving mean ± moving std')
 
 %% SIMULATE AUTONOMOUS
 x0 = 2 * ones(n,1);  % initial condition
