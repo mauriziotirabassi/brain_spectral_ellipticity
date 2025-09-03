@@ -1,17 +1,22 @@
 clear; clc; close all
 
 rng(42);
-n = 70;
+n = 3;
 I = eye(n);
+Sigma_w = 0.1 * I; % Uncorrelated noise
 
-% S = [ 0  -.1  0 ;
-%       .1   0 -1;
-%       0  1  0 ];
-S = randn(n);
-S = 0.5 * (S - S'); % Ensure skew-symmetry
-Sigma_w = 0.2 * I;
-Sigma = I;
-A = (-1/2 * Sigma_w + S) / Sigma;
+% Derive A
+% S = randn(n);
+% S = 0.5 * (S - S'); % Ensure skew-symmetry
+% Sigma = I;
+% A = (-1/2 * Sigma_w + S) / Sigma;
+
+% Derive Sigma
+S = randn(n); S = 0.5*(S - S'); % Random skew-symmetric part
+Q = randn(n); Q = Q'*Q; % Random negative definite part
+A = -Q + S;            
+Sigma = lyap(A, Sigma_w);
+S = 0.5 * (A * Sigma - Sigma * A.');
 
 ev = eig(A);
 fprintf('max real part = %.4g\n', max(real(ev)));
@@ -40,6 +45,29 @@ title('Stochastic Input Response')
 % [coeff, score, latent, tsquared, explained, mu] = pca(y_sim);
 % y_reduced3 = score(:, 1:3); animate3(y_reduced3)
 % y_reduced2 = score(:, 1:2); animate2(y_reduced2)
+
+%% STATE EVOLUTION & STEADY-STATE COVARIANCE
+% Plot ellipsoid
+[U, D] = eig(Sigma); % eigenvectors & eigenvalues
+radii = sqrt(diag(D)); % principal axes
+[xs, ys, zs] = sphere(20); % unit sphere
+ellipsoid_pts = U * diag(radii) * [xs(:)'; ys(:)'; zs(:)'];
+X = reshape(ellipsoid_pts(1,:) , size(xs));
+Y = reshape(ellipsoid_pts(2,:) , size(ys));
+Z = reshape(ellipsoid_pts(3,:) , size(zs));
+
+figure; hold on; grid on; view(3);
+surf(X, Y, Z, 'FaceAlpha',0.2, 'EdgeColor','none');
+plot3(mean(y_stoch(:,1)), mean(y_stoch(:,2)), mean(y_stoch(:,3)), 'k+', 'MarkerSize',10);
+
+% Animate trajectory
+h = animatedline('LineWidth',1);
+for i = 1:n_time
+    addpoints(h, y_stoch(i,1), y_stoch(i,2), y_stoch(i,3));
+    drawnow;
+end
+
+xlabel('PC_1'); ylabel('PC_2'); zlabel('PC_3');
 
 %% SYNCHRONIZATION
 % Filter to narrow band
