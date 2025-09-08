@@ -6,7 +6,7 @@ I = eye(n);
 Sigma_w = 0.1 * I; % Uncorrelated noise
 
 % Define A
-A = [-4 1; -1 -.5];
+A = [-5 2; -0.5 -1];
 Sigma_w = eye(2)*0.1;
 Sigma = lyap(A, Sigma_w); 
 
@@ -37,14 +37,36 @@ npts = 10;
 [x1, x2] = meshgrid(linspace(-1,1,npts), linspace(-1,1,npts));
 X = [x1(:)'; x2(:)'];
 
-%% PLOT DECOMPOSITION
+%% ASigma HELMHOLTZ DECOMPOSITION
 figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
 nexttile, plotvec(ASigma * X, X, 'r'), title(sprintf('A\\Sigma'));
 nexttile, plotvec(dA_Cov * X, X, 'b'), title('dA-Cov');
 nexttile, plotvec(dC_Cov * X, X, 'g'), title('dC-Cov');
 
-%%
-figure, plotvec(A * X, X, 'g'), title('dC-Cov');
+%% Sigma RESCALES A IN EIGENSPACE
+% This is the same thing as just plotting A vs ASigma
+[U,D] = eig(Sigma);
+radii = sqrt(diag(D));
+A_tilde = U' * A * U;
+
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, plotvec(A * X, X, 'r'), title('$A$', 'Interpreter', 'latex');
+hold on
+
+% Covariance ellipse
+scale = 4;
+theta = linspace(0,2*pi,100);
+ellipse = U * (radii .* [cos(theta); sin(theta)]) * scale;
+plot(ellipse(1,:), ellipse(2,:), 'g-', 'LineWidth', 1);
+
+% Scaled eigenvectors
+for i = 1:2
+    vec = U(:,i) * radii(i) * scale;   % scale eigenvector by corresponding sqrt(eigenvalue)
+    h = quiver(0, 0, vec(1), vec(2), 0, 'g-', 'LineWidth', 1, 'MaxHeadSize', 0.5);
+end
+legend(h, '$\Sigma$ Eigvecs', 'interpreter', 'latex')
+
+nexttile, plotvec(A * Sigma * X, X, 'b'), title('$A\Sigma$', 'Interpreter', 'latex');
 
 %% SIGMA^-1 NORMALIZATION
 [U,D] = eig(Sigma);
@@ -73,10 +95,11 @@ end
 V = ASigma * ellipsoid_pts;
 quiver(X, Y, V(1,:), V(2,:), 0, 'r')
 
-skip = 3;
+skip = 1;
 idx = 1:skip:size(ellipsoid_pts,2);
 V_norm = A * ellipsoid_pts;
-quiver(X(idx), Y(idx), V_norm(1,idx), V_norm(2,idx), 0, 'b')
+scale = .05;
+quiver(X(idx), Y(idx), scale*V_norm(1,idx), scale*V_norm(2,idx), 0, 'b')
 
 %% SIGMA^-1/2 NORMALIZATION
 Sigma_invhalf = U * diag(1./sqrt(diag(D))) * U';
