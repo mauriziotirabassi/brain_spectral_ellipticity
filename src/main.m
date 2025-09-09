@@ -40,7 +40,7 @@ xlabel('time'); ylabel('||x||_2');
 title('Stochastic Input Response')
 
 % Animate state vector evolution
-% animate3(y_stoch)
+animate3(y_stoch)
 
 % State evolution in 2D/3D after PCA
 % [coeff, score, latent, tsquared, explained, mu] = pca(y_sim);
@@ -127,7 +127,7 @@ xlabel('time'); ylabel('||x||_2');
 title('Autonomous response (ode45)')
 
 % Animate state vector evolution
-% animate3(y_aut)
+animate3(y_aut)
 
 %% COVARIANCE MATRIX
 % Max lag has to be inferior to total simulation time (in transient)
@@ -218,6 +218,38 @@ sgtitle('Symmetric (Even) vs Asymmetric (Odd) Covariance Components');
 %     drawnow
 %     pause(0.01)
 % end
+
+%% FCD-STYLE SIMILATIRY ACROSS LAGS
+% Seeing at what lag the dynamics are the same.
+
+% Theoretical
+vecs_th = [];
+for k = 1:maxLag
+    Ck = Sigma_th_full(:,:,k);
+    vecs_th(:,k) = Ck(triuIdx);
+end
+FCD_th = corr(vecs_th);
+
+% Empirical
+vecs = [];
+for k = 1:maxLag+1
+    Ck = Sigma_emp(:,:,k);
+    triuIdx = find(triu(ones(n),1));
+    vecs(:,k) = Ck(triuIdx);
+end
+FCD_emp = corr(vecs);
+
+% Plot
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, imagesc(lags, lags, FCD_th);
+axis square; colorbar; colormap jet;
+xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+title('FCD across lagged theoretical covariance matrices');
+
+nexttile, imagesc(lags, lags, FCD_emp);
+axis square; colorbar; colormap jet;
+xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+title('FCD across lagged empirical covariance matrices');
 
 %% PSD MATRIX
 Fs = 1 / tr;
