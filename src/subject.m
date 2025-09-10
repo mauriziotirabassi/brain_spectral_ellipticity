@@ -1,5 +1,4 @@
 clear; clc; close all
-
 rng(42);
 
 % Data
@@ -11,7 +10,7 @@ d = dir(fullfile(outDir,'*.mat')); % list of subject‐model .mat files
 files = {d.name};
 
 % Subject data
-iSub = 1; % subject number
+iSub = 5; % subject number
 subj = load(fullfile(outDir,files{iSub}));
 A = subj.A; % effective connectivity
 n = size(A, 1);
@@ -21,6 +20,18 @@ Sigma = lyap(A, Sigma_w); % zero-lag covariance
 S = 0.5 * (A * Sigma - Sigma * (A.')); % dC-Cov
 hr = subj.h; % haemodynamic response
 
+% Isolating inactive pairs
+upper_percentile = prctile(S(:), 95);
+lower_percentile = prctile(S(:), 5);
+mask = (S >= upper_percentile) | (S <= lower_percentile);
+
+% Network topology
+S_plot = S; S_plot(~mask) = 0; G = digraph(S_plot);
+figure; h = plot(G, 'Layout','circle');
+LWidths = abs(G.Edges.Weight) / max(abs(G.Edges.Weight));
+h.LineWidth = LWidths;
+
+% SIMULATION
 % Simulation parameters
 n_time = 2e3; %1e4; % Simulation time steps
 transient_length = 1e3;
@@ -28,7 +39,7 @@ tr = 0.1; % Sampling period
 t = 0 : tr : (n_time + transient_length - 1) * tr;
 t_sim = t(transient_length + 1:end);
 
-%% SIMULATE
+% Simulate
 sys = ss(A, eye(n), eye(n), zeros(n));
 w = mvnrnd(zeros(1, n), Sigma_w, length(t)); % Generate noise input
 x = lsim(sys, w, t); % Simulate LTI response to noise
@@ -42,58 +53,13 @@ for k = 1:n
     bold(:,k) = conv(x(:,k), h, "same");
 end
 
-% Plot the norm of the state vector
-figure, plot(t_sim, vecnorm(x, 2, 2))
-xlabel('time'); ylabel('||x||_2');
-title('Stochastic Input Response')
-
 % State evolution in 2D/3D after PCA
-[coeff, score, latent, tsquared, explained, mu] = pca(x);
+% [coeff, score, latent, tsquared, explained, mu] = pca(x);
 % x_reduced3 = score(:, 1:3); animate3(x_reduced3)
 % x_reduced2 = score(:, 1:2); animate2(x_reduced2)
 
-%% SYNCHRONIZATION
-% Filter to narrow band
-fpass = [0.1, 1.0];
-fs = 1 / tr;
-[b, a] = butter(4, fpass / (fs / 2), 'bandpass'); % 4th-order Butterworth filter
-bold_filt = filtfilt(b, a, bold);
-z = hilbert(bold_filt);
-phi = angle(z);
-
-% figure, axis equal
-% theta = linspace(0, 2*pi, 100);
-% for k = 1:size(phi, 1)
-%     cla
-%     Rvec = mean(exp(1i*phi(k,:)));
-%     plot(cos(theta), sin(theta), 'k--'), hold on
-%     quiver(zeros(1,n), zeros(1,n), cos(phi(k,:)), sin(phi(k,:)), 0, 'b-')
-%     hold on
-%     quiver(0, 0, real(Rvec), imag(Rvec), 0, 'r', 'LineWidth', 2)
-%     title(sprintf('t = %.2f, |R| = %.2f', t(k), abs(Rvec)))
-%     drawnow, pause(.1)
-% end
-
-R = abs(mean(exp(1i*phi(:,:)), 2));
-x = t_sim(:);
-r = R(:);
-win_sec = 30;
-dt = x(2)-x(1);
-w = max(1, round(win_sec / dt));
-mu = movmean(r, w); % centered moving mean
-s  = movstd (r, w, 0); % centered moving std (sample std)
-
-figure, hold on
-fill([x; flipud(x)], [mu+s; flipud(mu-s)], [0.9 0.9 1])
-plot(x, r, 'b'), plot(x, mu, 'r-', 'LineWidth', 2)
-yline(mean(r), 'k--', 'LineWidth', 2)                      
-xlabel('Time (s)'); ylabel('R(t)'); title('Moving mean ± moving std')
-
-%% COVARIANCE MATRIX
-% Max lag has to be inferior to total simulation time (in transient)
-% because otherwise there wouldn't be enough data points to form the lagged
-% pair. If I choose maxLag > length(t) then I have empty plot.
-maxLag = 400;  % number of lags to evaluate
+% COVARIANCE MATRIX
+maxLag = size(x, 1) / 2;
 lags = (0:maxLag) * tr;
 
 % Theoretical covariance
@@ -133,45 +99,74 @@ for i = 1:n
     end
 end
 
-%% PLOT COVARIANCE
-figure;
-for i = 1:n
-    for j = 1:n
-        subplot(n,n,(i-1)*n+j);
-        plot(lags_full, squeeze(Sigma_th_full(i,j,:)),'r-'); hold on;
-        plot(lags_full, squeeze(Sigma_emp_full(i,j,:)),'b--');
-        title(sprintf('\\Sigma_{%d%d}(\\tau)',i,j));
-        xlabel('\tau'); grid on;
-        if i==1 && j==1
-            legend('Theory','Empirical');
-        end
-    end
-end
-sgtitle('Auto/Cross-Covariance');
+% FCD-STYLE SIMILATIRY ACROSS LAGS
+% triuIdx = find(triu(ones(n),1));
+triuIdx = find(triu(mask,1)); % Isolate active pairs
 
-figure;
-for i = 1:n
-    for j = 1:n
-        subplot(n,n,(i-1)*n+j);
-        Cth = squeeze(Sigma_th_full(i,j,:));
-        Cth_sym = 0.5 * (Cth + flipud(Cth));
-        Cth_asym = 0.5 * (Cth - flipud(Cth));
-        Cemp = squeeze(Sigma_emp_full(i,j,:));
-        Cemp_sym = 0.5 * (Cemp + flipud(Cemp));
-        Cemp_asym = 0.5 * (Cemp - flipud(Cemp));
-
-        plot(lags_full, Cth_sym, 'r-', 'LineWidth', 1.2); hold on;
-        plot(lags_full, Cth_asym, 'b-', 'LineWidth', 1.2);
-        plot(lags_full, Cemp_sym, 'r--');
-        plot(lags_full, Cemp_asym, 'b--');
-        title(sprintf('Sym/Asym C_{%d%d}(\\tau)', i, j));
-        xlabel('\tau'); grid on;
-        if i==1 && j==1
-            legend('Sym (th)','Asym (th)','Sym (emp)','Asym (emp)');
-        end
-    end
+% Theoretical
+vecs_th = [];
+for k = 1:length(lags_full)
+    Ck = Sigma_th_full(:,:,k);
+    vecs_th(:,k) = Ck(triuIdx);
 end
-sgtitle('Symmetric (Even) vs Asymmetric (Odd) Covariance Components');
+FCD_th = corr(vecs_th);
+
+% Empirical
+vecs_em = [];
+for k = 1:length(lags_full)
+    Ck = Sigma_emp_full(:,:,k);
+    vecs_em(:,k) = Ck(triuIdx);
+end
+FCD_emp = corr(vecs_em);
+
+% Plot
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, imagesc(lags_full, lags_full, FCD_th);
+axis square; colorbar; colormap jet;
+xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+title('Theoretical Time-Lagged Covariance Dynamics');
+
+nexttile, imagesc(lags_full, lags_full, FCD_emp);
+axis square; colorbar; colormap jet;
+xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+title('Empirical Time-Lagged Covariance Dynamics');
+
+%% SYNCHRONIZATION
+% Filter to narrow band
+fpass = [0.1, 1.0];
+fs = 1 / tr;
+[b, a] = butter(4, fpass / (fs / 2), 'bandpass'); % 4th-order Butterworth filter
+bold_filt = filtfilt(b, a, bold);
+z = hilbert(bold_filt);
+phi = angle(z);
+
+% figure, axis equal
+% theta = linspace(0, 2*pi, 100);
+% for k = 1:size(phi, 1)
+%     cla
+%     Rvec = mean(exp(1i*phi(k,:)));
+%     plot(cos(theta), sin(theta), 'k--'), hold on
+%     quiver(zeros(1,n), zeros(1,n), cos(phi(k,:)), sin(phi(k,:)), 0, 'b-')
+%     hold on
+%     quiver(0, 0, real(Rvec), imag(Rvec), 0, 'r', 'LineWidth', 2)
+%     title(sprintf('t = %.2f, |R| = %.2f', t(k), abs(Rvec)))
+%     drawnow, pause(.1)
+% end
+
+R = abs(mean(exp(1i*phi(:,:)), 2));
+x = t_sim(:);
+r = R(:);
+win_sec = 30;
+dt = x(2)-x(1);
+w = max(1, round(win_sec / dt));
+mu = movmean(r, w); % centered moving mean
+s  = movstd (r, w, 0); % centered moving std (sample std)
+
+figure, hold on
+fill([x; flipud(x)], [mu+s; flipud(mu-s)], [0.9 0.9 1])
+plot(x, r, 'b'), plot(x, mu, 'r-', 'LineWidth', 2)
+yline(mean(r), 'k--', 'LineWidth', 2)                      
+xlabel('Time (s)'); ylabel('R(t)'); title('Moving mean ± moving std')
 
 %% FUNCTIONS
 function animate3(data)
