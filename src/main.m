@@ -40,7 +40,7 @@ xlabel('time'); ylabel('||x||_2');
 title('Stochastic Input Response')
 
 % Animate state vector evolution
-animate3(y_stoch)
+% animate3(y_stoch)
 
 % State evolution in 2D/3D after PCA
 % [coeff, score, latent, tsquared, explained, mu] = pca(y_sim);
@@ -132,8 +132,11 @@ animate3(y_aut)
 %% COVARIANCE MATRIX
 % Max lag has to be inferior to total simulation time (in transient)
 % because otherwise there wouldn't be enough data points to form the lagged
-% pair. If I choose maxLag > length(t) then I have empty plot.
-maxLag = 400;  % number of lags to evaluate
+% pair. If I choose maxLag > length(t) then I have empty plot. It is not
+% useful to consider a number of lags close to the simulated time points
+% because estimate variance will be too high, given the fewer number of
+% points
+maxLag = min(size(y_stoch, 1)/2, 2000);  % number of lags to evaluate
 lags = (0:maxLag) * tr;
 
 % Theoretical covariance
@@ -173,6 +176,7 @@ for i = 1:n
     end
 end
 
+%% PLOT COVARIANCES
 figure;
 for i = 1:n
     for j = 1:n
@@ -221,35 +225,35 @@ sgtitle('Symmetric (Even) vs Asymmetric (Odd) Covariance Components');
 
 %% FCD-STYLE SIMILATIRY ACROSS LAGS
 % Seeing at what lag the dynamics are the same.
+triuIdx = find(triu(ones(n),1));
 
 % Theoretical
 vecs_th = [];
-for k = 1:maxLag
+for k = 1:length(lags_full)
     Ck = Sigma_th_full(:,:,k);
     vecs_th(:,k) = Ck(triuIdx);
 end
 FCD_th = corr(vecs_th);
 
 % Empirical
-vecs = [];
-for k = 1:maxLag+1
-    Ck = Sigma_emp(:,:,k);
-    triuIdx = find(triu(ones(n),1));
-    vecs(:,k) = Ck(triuIdx);
+vecs_em = [];
+for k = 1:length(lags_full)
+    Ck = Sigma_emp_full(:,:,k);
+    vecs_em(:,k) = Ck(triuIdx);
 end
-FCD_emp = corr(vecs);
+FCD_emp = corr(vecs_em);
 
 % Plot
 figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, imagesc(lags, lags, FCD_th);
+nexttile, imagesc(lags_full, lags_full, FCD_th);
 axis square; colorbar; colormap jet;
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title('FCD across lagged theoretical covariance matrices');
+title('Theoretical Time-Lagged Covariance Dynamics');
 
-nexttile, imagesc(lags, lags, FCD_emp);
+nexttile, imagesc(lags_full, lags_full, FCD_emp);
 axis square; colorbar; colormap jet;
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title('FCD across lagged empirical covariance matrices');
+title('Empirical Time-Lagged Covariance Dynamics');
 
 %% PSD MATRIX
 Fs = 1 / tr;

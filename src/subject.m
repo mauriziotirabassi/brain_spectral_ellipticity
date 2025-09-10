@@ -1,20 +1,19 @@
-clear; clc; close all
+clear; clc; %close all
 rng(42);
 
 % Data
-dataDir    = fullfile(pwd,'data');
-% distFile   = fullfile(dataDir,'mtx_euc_distance.mat'); % distance matrix
+dataDir = fullfile(pwd,'data');
+% distFile = fullfile(dataDir,'mtx_euc_distance.mat'); % distance matrix
 % structFile = fullfile(dataDir,'asymm_ncd_no_thr_N_74.mat'); % structural conn matrix
-outDir     = fullfile(dataDir,'regressed_001_01_sim62131');
+outDir = fullfile(dataDir,'regressed_001_01_sim62131');
 d = dir(fullfile(outDir,'*.mat')); % list of subject‐model .mat files
 files = {d.name};
 
 % Subject data
-iSub = 5; % subject number
+iSub = 7; % subject number
 subj = load(fullfile(outDir,files{iSub}));
 A = subj.A; % effective connectivity
-n = size(A, 1);
-I = eye(n);
+n = size(A, 1); I = eye(n);
 Sigma_w = I * subj.output.eff_conn.NoiseVar; % noise covariance
 Sigma = lyap(A, Sigma_w); % zero-lag covariance
 S = 0.5 * (A * Sigma - Sigma * (A.')); % dC-Cov
@@ -28,8 +27,8 @@ mask = (S >= upper_percentile) | (S <= lower_percentile);
 % Network topology
 S_plot = S; S_plot(~mask) = 0; G = digraph(S_plot);
 figure; h = plot(G, 'Layout','circle');
-LWidths = abs(G.Edges.Weight) / max(abs(G.Edges.Weight));
-h.LineWidth = LWidths;
+h.LineWidth = abs(G.Edges.Weight) / max(abs(G.Edges.Weight));
+title(sprintf('Subject %d Topology', iSub));
 
 % SIMULATION
 % Simulation parameters
@@ -100,7 +99,7 @@ for i = 1:n
 end
 
 % FCD-STYLE SIMILATIRY ACROSS LAGS
-% triuIdx = find(triu(ones(n),1));
+% triuIdx = find(triu(ones(n), 1));
 triuIdx = find(triu(mask,1)); % Isolate active pairs
 
 % Theoretical
@@ -124,12 +123,12 @@ figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
 nexttile, imagesc(lags_full, lags_full, FCD_th);
 axis square; colorbar; colormap jet;
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title('Theoretical Time-Lagged Covariance Dynamics');
+title(sprintf('Theoretical Subject %d', iSub));
 
 nexttile, imagesc(lags_full, lags_full, FCD_emp);
 axis square; colorbar; colormap jet;
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title('Empirical Time-Lagged Covariance Dynamics');
+title(sprintf('Empirical Subject %d', iSub));
 
 %% SYNCHRONIZATION
 % Filter to narrow band

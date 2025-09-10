@@ -1,37 +1,35 @@
-clear; clc; close all
+clear; clc; %close all
 
-rng(42);
-n = 10;
-I = eye(n);
+rng(42); % <---------------------- This affects simulated noise injections
+n = 10; I = eye(n);
 Sigma_w = 0.1 * I; % Uncorrelated noise
 
-% Define S
-topology = 'Star';
-S = buildS(n, topology);
-Sigma = I;
-A = (-0.5 * Sigma_w + S) / Sigma;
+% % Topology
+% topology = 'Chain'; % <----------------------------------------------------
+% S = buildS(n, topology);
+% showS(S)
+% 
+% % Initial energy distribution <-------------------------------------------
+% Sigma = I; % Balanced
+% % eps = 1e-1; Sigma = eps * I; Sigma(1,1) = 100; % Unbalanced
+% 
+% % Dynamics
+% A = (-0.5 * Sigma_w + S) / Sigma;
+% ev = eig(A); fprintf('max real part = %.4g\n', max(real(ev)));
 
 % Define A
-% topology = 'Random';
-% S = randn(n); S = 0.5*(S - S'); % Random skew-symmetric part
-% Q = randn(n); Q = Q'*Q; % Random negative definite part
-% A = -Q + S;
-% Sigma = lyap(A, Sigma_w);
-
-ev = eig(A);
-fprintf('max real part = %.4g\n', max(real(ev)));
-
-% Network topology
-S = 0.5 * (A * Sigma - Sigma * A.');
-G = digraph(S);
-figure; h = plot(G, 'Layout','circle', 'EdgeLabel',G.Edges.Weight);
-LWidths = abs(G.Edges.Weight)/max(abs(G.Edges.Weight));
-h.LineWidth = LWidths;
+topology = 'Random';
+S = randn(n); S = 0.5 * (S - S'); % Random skew-symmetric part
+Q = randn(n); Q = Q' * Q; % Random negative definite part
+A = -Q + S;
+Sigma = lyap(A, Sigma_w);
+S = 0.5 * (A * Sigma - Sigma * (A.'));
+showS(S);
 
 % Simulation parameters
 n_time = 2e3; %1e4; % Simulation time steps
 transient_length = 1e3;
-tr = 0.1; % Sampling period
+tr = 0.01; % Sampling period <--------------------------------------------
 t = 0 : tr : (n_time + transient_length - 1) * tr;
 
 % SIMULATE W/STOCHASTIC INPUT
@@ -41,7 +39,7 @@ y_stoch = lsim(sys, w, t); % Simulate LTI response to noise
 y_stoch = y_stoch(transient_length + 1:end,:); % Remove transient
 
 % COVARIANCE MATRIX
-maxLag = min(size(y_stoch, 1)/2, 2000);  % number of lags to evaluate
+maxLag = size(y_stoch, 1) / 2; % number of lags to evaluate
 lags = (0:maxLag) * tr;
 
 % Theoretical covariance
@@ -82,8 +80,7 @@ for i = 1:n
 end
 
 % FCD-STYLE SIMILATIRY ACROSS LAGS
-% Seeing at what lag the dynamics are the same.
-% triuIdx = find(triu(ones(n),1));
+% triuIdx = find(triu(ones(n),1)); % Include all pairs <------------------
 triuIdx = find(triu(abs(S) > 0, 1)); % Isolate only active pairs
 
 % Theoretical
@@ -140,4 +137,10 @@ switch lower(topology)
     otherwise
         error('Unknown topology: %s', topology)
 end
+end
+
+function showS(S)
+    G = digraph(S);
+    figure; h = plot(G, 'Layout','circle', 'EdgeLabel',G.Edges.Weight);
+    h.LineWidth = abs(G.Edges.Weight)/max(abs(G.Edges.Weight));
 end
