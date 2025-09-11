@@ -3,11 +3,15 @@ rng(42);
 
 % Data
 dataDir = fullfile(pwd,'data');
-% distFile = fullfile(dataDir,'mtx_euc_distance.mat'); % distance matrix
-% structFile = fullfile(dataDir,'asymm_ncd_no_thr_N_74.mat'); % structural conn matrix
+distFile = fullfile(dataDir,'mtx_euc_distance.mat'); % distance matrix
+structFile = fullfile(dataDir,'asymm_ncd_no_thr_N_74.mat'); % structural conn matrix
 outDir = fullfile(dataDir,'regressed_001_01_sim62131');
 d = dir(fullfile(outDir,'*.mat')); % list of subject‐model .mat files
 files = {d.name};
+
+% Connectome
+C = load(fullfile(structFile)).full_connectome_no_symm;
+D = load(distFile,'mtx_euc_dis').mtx_euc_dis;
 
 % Subject data
 iSub = 5; % subject number
@@ -28,7 +32,7 @@ mask = (S >= upper_percentile) | (S <= lower_percentile);
 S_plot = S; S_plot(~mask) = 0; G = digraph(S_plot);
 figure; h = plot(G, 'Layout','circle');
 h.LineWidth = abs(G.Edges.Weight) / max(abs(G.Edges.Weight));
-title(sprintf('Subject %d Topology', iSub));
+title(sprintf('Subject %d Causal Topology', iSub));
 
 % SIMULATION
 % Simulation parameters

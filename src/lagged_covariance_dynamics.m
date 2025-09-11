@@ -7,11 +7,11 @@ Sigma_w = 0.1 * I; % Uncorrelated noise
 % Topology
 topology = 'Ring';
 S = buildS(n, topology);
-showS(S)
+% showS(S)
 
 % Initial energy distribution
-Sigma = I; % Balanced
-% eps = 1e-1; Sigma = eps * I; Sigma(1,1) = 10; % Unbalanced
+% Sigma = I; % Balanced
+eps = 1e-1; Sigma = eps * I; Sigma(5,5) = 10; % Unbalanced
 
 % Dynamics
 A = (-0.5 * Sigma_w + S) / Sigma;
@@ -101,7 +101,7 @@ end
 FCD_emp = corr(vecs_em);
 
 % Plot
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+figure, tiledlayout(2, 1, 'TileSpacing','compact','Padding','compact');
 nexttile, imagesc(lags_full, lags_full, FCD_th);
 axis square; colorbar; colormap jet;
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
@@ -125,6 +125,19 @@ title(sprintf('Theoretical PSD %s', topology));
 FCDfft_emp = log(1 + abs(fftshift(fft2(FCD_emp))));
 nexttile, imagesc(freq_axis, freq_axis, FCDfft_emp); colormap(jet); colorbar;
 title(sprintf('Empirical PSD %s', topology));
+
+% SINOGRAM
+theta = 0:179;
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+[R_th, xp_th] = radon(FCD_th, theta);
+nexttile, imagesc(theta, xp_th, R_th);
+xlabel('Angle (degrees)'); ylabel('Projection position');
+title(sprintf('Theoretical Sinogram %s', topology));
+
+[R_emp, xp_emp] = radon(FCD_emp, theta);
+nexttile, imagesc(theta, xp_emp, R_emp);
+xlabel('Angle (degrees)'); ylabel('Projection position');
+title(sprintf('Empirical Sinogram %s', topology));
 
 function S = buildS(n, topology)
 %BUILD S Construct skew-symmetric adjacency matrix S
