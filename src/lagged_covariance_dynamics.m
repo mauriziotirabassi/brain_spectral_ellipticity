@@ -1,30 +1,30 @@
 clear; clc; %close all
 
-rng(42); % <---------------------- This affects simulated noise injections
+rng(42); % This affects simulated noise injections
 n = 10; I = eye(n);
 Sigma_w = 0.1 * I; % Uncorrelated noise
 
-% % Topology
-% topology = 'Chain'; % <----------------------------------------------------
-% S = buildS(n, topology);
-% showS(S)
-% 
-% % Initial energy distribution <-------------------------------------------
-% Sigma = I; % Balanced
-% % eps = 1e-1; Sigma = eps * I; Sigma(1,1) = 100; % Unbalanced
-% 
-% % Dynamics
-% A = (-0.5 * Sigma_w + S) / Sigma;
-% ev = eig(A); fprintf('max real part = %.4g\n', max(real(ev)));
+% Topology
+topology = 'Ring';
+S = buildS(n, topology);
+showS(S)
+
+% Initial energy distribution
+Sigma = I; % Balanced
+% eps = 1e-1; Sigma = eps * I; Sigma(1,1) = 10; % Unbalanced
+
+% Dynamics
+A = (-0.5 * Sigma_w + S) / Sigma;
+ev = eig(A); fprintf('max real part = %.4g\n', max(real(ev)));
 
 % Define A
-topology = 'Random';
-S = randn(n); S = 0.5 * (S - S'); % Random skew-symmetric part
-Q = randn(n); Q = Q' * Q; % Random negative definite part
-A = -Q + S;
-Sigma = lyap(A, Sigma_w);
-S = 0.5 * (A * Sigma - Sigma * (A.'));
-showS(S);
+% topology = 'Random';
+% S = randn(n); S = 0.5 * (S - S'); % Random skew-symmetric part
+% Q = randn(n); Q = Q' * Q; % Random negative definite part
+% A = -Q + S;
+% Sigma = lyap(A, Sigma_w);
+% S = 0.5 * (A * Sigma - Sigma * (A.'));
+% showS(S);
 
 % Simulation parameters
 n_time = 2e3; %1e4; % Simulation time steps
@@ -79,9 +79,10 @@ for i = 1:n
     end
 end
 
-% FCD-STYLE SIMILATIRY ACROSS LAGS
-% triuIdx = find(triu(ones(n),1)); % Include all pairs <------------------
+% FCD-STYLE SIMILATIRY ACROSS LAGS <--------------------------------------
+% triuIdx = find(triu(ones(n),1)); % Include all pairs 
 triuIdx = find(triu(abs(S) > 0, 1)); % Isolate only active pairs
+% triuIdx = find(triu(abs(S) > 0 | eye(size(S)))); % Isolate but keep the diagonal
 
 % Theoretical
 vecs_th = [];
@@ -110,6 +111,20 @@ nexttile, imagesc(lags_full, lags_full, FCD_emp);
 axis square; colorbar; colormap jet;
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Empirical %s', topology));
+
+% 2D FOURIER TRANSFORM
+nLags = length(lags_full);
+df = 1 / (nLags * tr);
+freq_axis = (-floor(nLags/2):ceil(nLags/2)-1) * df; % in Hz
+
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+FCDfft_th = log(1 + abs(fftshift(fft2(FCD_th))));
+nexttile, imagesc(freq_axis, freq_axis, FCDfft_th); colormap(jet); colorbar;
+title(sprintf('Theoretical PSD %s', topology));
+
+FCDfft_emp = log(1 + abs(fftshift(fft2(FCD_emp))));
+nexttile, imagesc(freq_axis, freq_axis, FCDfft_emp); colormap(jet); colorbar;
+title(sprintf('Empirical PSD %s', topology));
 
 function S = buildS(n, topology)
 %BUILD S Construct skew-symmetric adjacency matrix S

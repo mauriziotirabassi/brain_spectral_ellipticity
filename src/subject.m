@@ -10,7 +10,7 @@ d = dir(fullfile(outDir,'*.mat')); % list of subject‐model .mat files
 files = {d.name};
 
 % Subject data
-iSub = 7; % subject number
+iSub = 5; % subject number
 subj = load(fullfile(outDir,files{iSub}));
 A = subj.A; % effective connectivity
 n = size(A, 1); I = eye(n);
@@ -20,8 +20,8 @@ S = 0.5 * (A * Sigma - Sigma * (A.')); % dC-Cov
 hr = subj.h; % haemodynamic response
 
 % Isolating inactive pairs
-upper_percentile = prctile(S(:), 95);
-lower_percentile = prctile(S(:), 5);
+upper_percentile = prctile(S(:), 99);
+lower_percentile = prctile(S(:), 1);
 mask = (S >= upper_percentile) | (S <= lower_percentile);
 
 % Network topology
@@ -34,7 +34,7 @@ title(sprintf('Subject %d Topology', iSub));
 % Simulation parameters
 n_time = 2e3; %1e4; % Simulation time steps
 transient_length = 1e3;
-tr = 0.1; % Sampling period
+tr = 0.1; % Sampling period <---------------------------------------------
 t = 0 : tr : (n_time + transient_length - 1) * tr;
 t_sim = t(transient_length + 1:end);
 
@@ -98,9 +98,10 @@ for i = 1:n
     end
 end
 
-% FCD-STYLE SIMILATIRY ACROSS LAGS
+% FCD-STYLE SIMILATIRY ACROSS LAGS <--------------------------------------
 % triuIdx = find(triu(ones(n), 1));
-triuIdx = find(triu(mask,1)); % Isolate active pairs
+triuIdx = find(triu(mask, 1)); % Isolate active pairs
+% triuIdx = find(triu(mask | I, 0)); % Isolate active paris and keep diagonal
 
 % Theoretical
 vecs_th = [];
@@ -129,6 +130,43 @@ nexttile, imagesc(lags_full, lags_full, FCD_emp);
 axis square; colorbar; colormap jet;
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Empirical Subject %d', iSub));
+
+%% 2D FOURIER TRANSFORM
+nLags = length(lags_full);
+df = 1 / (nLags * tr);
+freq_axis = (-floor(nLags/2):ceil(nLags/2)-1) * df; % in Hz
+
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+FCDfft_th = log(1 + abs(fftshift(fft2(FCD_th))));
+nexttile, imagesc(freq_axis, freq_axis, FCDfft_th); colormap(jet); colorbar;
+title(sprintf('Theoretical PSD Subject %d', iSub));
+
+sigma = 10; % Approx the number of lag steps corresponding to autocorr decay
+FCD_emp_smooth = imgaussfilt(FCD_emp, sigma);
+FCDfft_emp = log(1 + abs(fftshift(fft2(FCD_emp_smooth))));
+nexttile, imagesc(freq_axis, freq_axis, FCDfft_emp); colormap(jet); colorbar;
+title(sprintf('Empirical PSD Subject %d', iSub));
+
+%% SINOGRAM
+theta = 0:179;
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+[R_th, xp_th] = radon(FCD_th, theta);
+nexttile, imagesc(theta, xp_th, R_th);
+xlabel('Angle (degrees)'); ylabel('Projection position');
+title(sprintf('Theoretical Sinogram Subject %d', iSub));
+
+[R_emp, xp_emp] = radon(FCD_emp, theta);
+nexttile, imagesc(theta, xp_emp, R_emp);
+xlabel('Angle (degrees)'); ylabel('Projection position');
+title(sprintf('Empirical Sinogram Subject %d', iSub));
+
+%%
+FCD_fft = fft2(FCD_smooth);
+R_fft = ifft2(abs(FCD_fft).^2);   % autocorrelation via FFT
+R_fft = fftshift(R_fft);           % center zero lag
+imagesc(R_fft); colormap(jet); colorbar;
+
+
 
 %% SYNCHRONIZATION
 % Filter to narrow band
