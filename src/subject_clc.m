@@ -16,27 +16,25 @@ D = load(distFile,'mtx_euc_dis').mtx_euc_dis;
 % Subject data
 iSub = 5; % subject number
 subj = load(fullfile(outDir,files{iSub}));
-A = subj.A; % effective connectivity
+A = subj.A * 2; % effective connectivity
 n = size(A, 1); I = eye(n);
 Sigma_w = I * subj.output.eff_conn.NoiseVar; % noise covariance
 Sigma = lyap(A, Sigma_w); % zero-lag covariance
-S = 0.5 * (A * Sigma - Sigma * (A.')); % dC-Cov
+S = (A * Sigma - Sigma * (A.')); % dC-Cov
 hr = subj.h; % haemodynamic response
 
 % Isolating inactive pairs
-upper_percentile = prctile(S(:), 99);
-lower_percentile = prctile(S(:), 1);
+pct = 99;
+upper_percentile = prctile(S(:), pct);
+lower_percentile = prctile(S(:), 100 - pct);
 mask = (S >= upper_percentile) | (S <= lower_percentile);
 
 % Network topology
-S_plot = S; S_plot(~mask) = 0; G = digraph(S_plot);
-figure; h = plot(G, 'Layout','circle');
-h.LineWidth = abs(G.Edges.Weight) / max(abs(G.Edges.Weight));
-title(sprintf('Subject %d Causal Topology', iSub));
+S_plot = S; S_plot(~mask) = 0; showtop(S_plot);
 
 % SIMULATION
 % Simulation parameters
-n_time = 2e3; %1e4; % Simulation time steps
+n_time = 1e3; %1e4; % Simulation time steps
 transient_length = 1e3;
 tr = 0.1; % Sampling period <---------------------------------------------
 t = 0 : tr : (n_time + transient_length - 1) * tr;
@@ -107,33 +105,34 @@ end
 triuIdx = find(triu(mask, 1)); % Isolate active pairs
 % triuIdx = find(triu(mask | I, 0)); % Isolate active paris and keep diagonal
 
-% Theoretical
-vecs_th = [];
-for k = 1:length(lags_full)
-    Ck = Sigma_th_full(:,:,k);
-    vecs_th(:,k) = Ck(triuIdx);
-end
-FCD_th = corr(vecs_th);
-
-% Empirical
-vecs_em = [];
-for k = 1:length(lags_full)
-    Ck = Sigma_emp_full(:,:,k);
-    vecs_em(:,k) = Ck(triuIdx);
-end
-FCD_emp = corr(vecs_em);
-
-% Plot
 figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, imagesc(lags_full, lags_full, FCD_th);
-axis square; colorbar; colormap jet;
-xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_th_full, triuIdx));
+axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Theoretical Subject %d', iSub));
-
-nexttile, imagesc(lags_full, lags_full, FCD_emp);
-axis square; colorbar; colormap jet;
-xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_emp_full, triuIdx));
+axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Empirical Subject %d', iSub));
+
+%% SINGLE ROWS
+figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
+clc_th = nan(length(lags),length(lags),numel(n));
+clc_emp = nan(length(lags),length(lags),numel(n));
+for i = 1:n
+    mask = false(size(A)); mask(:, i) = true;
+    clc_th(:,:,i) = crosslagcov(Sigma_th, mask);
+    clc_emp(:,:,i) = crosslagcov(Sigma_emp, mask);
+    nexttile(1), imagesc(mask);
+    nexttile(2), imagesc(lags, lags, clc_th(:,:,i))
+    nexttile(3), imagesc(lags, lags, clc_emp(:,:,i))
+    colorbar, colormap jet
+    drawnow, pause(0.2)
+end
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+mask = find(triu(ones(length(lags)), 0));
+nexttile, imagesc(crosslagcov(clc_th, mask)), colorbar, colormap jet
+title('Theoretical Meta-CLC')
+nexttile, imagesc(crosslagcov(clc_emp, mask)), colorbar, colormap jet
+title('Empirical Meta-CLC')
 
 %% 2D FOURIER TRANSFORM
 nLags = length(lags_full);
@@ -163,14 +162,6 @@ title(sprintf('Theoretical Sinogram Subject %d', iSub));
 nexttile, imagesc(theta, xp_emp, R_emp);
 xlabel('Angle (degrees)'); ylabel('Projection position');
 title(sprintf('Empirical Sinogram Subject %d', iSub));
-
-%%
-FCD_fft = fft2(FCD_smooth);
-R_fft = ifft2(abs(FCD_fft).^2);   % autocorrelation via FFT
-R_fft = fftshift(R_fft);           % center zero lag
-imagesc(R_fft); colormap(jet); colorbar;
-
-
 
 %% SYNCHRONIZATION
 % Filter to narrow band
@@ -239,4 +230,23 @@ function animate2(data)
         addpoints(h, data(i, 1), data(i, 2));
         drawnow
     end
+end
+
+function showtop(S)
+    G = digraph(S);
+    figure; h = plot(G, 'Layout','circle'); %, 'EdgeLabel',G.Edges.Weight);
+    h.LineWidth = abs(G.Edges.Weight)/max(abs(G.Edges.Weight));
+end
+
+function clc = crosslagcov(matrixvec, mask)
+%CLC Construct cross-lag covariance matrix (CLC)
+%   matrixvec : series of matrices whose CLC to calculate
+%   mask      : mask for the matrices
+
+    vecs = [];
+    for k = 1:size(matrixvec, 3)
+        Ck = matrixvec(:,:,k);
+        vecs(:,k) = Ck(mask);
+    end
+    clc = corr(vecs);
 end
