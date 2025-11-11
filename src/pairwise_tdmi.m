@@ -54,10 +54,12 @@ lags = (0:maxLag) * tr;
 Sigma_tau = @(tau) expm(A * tau) * Sigma;
 stds_th = sqrt(diag(Sigma));
 normMat_th = stds_th * stds_th.';
-Sigma_th = nan(n,n,numel(lags));
+Cov_th = nan(n,n,numel(lags));
+Corr_th = nan(n,n,numel(lags));
 for k = 1:numel(lags)
     tau = lags(k);
-    Sigma_th(:,:,k) = Sigma_tau(tau) ./ normMat_th; % Pearson correlation
+    Cov_th(:,:,k) = Sigma_tau(tau);
+    Corr_th(:,:,k) = Sigma_tau(tau) ./ normMat_th; % Pearson correlation
 end
 
 % Simulated covariance
@@ -73,13 +75,18 @@ end
 
 % Extend to negative lags based on property C_ij(-tau) = C_ji(tau)
 lags_full = [-fliplr(lags(2:end)), lags]; % Symmetric lag vector
-Sigma_th_full = nan(n,n,numel(lags_full));
+Cov_th_full = nan(n,n,numel(lags_full));
+Corr_th_full = nan(n,n,numel(lags_full));
 Sigma_emp_full = nan(n,n,numel(lags_full));
 for i = 1:n
     for j = 1:n
-        Cth_pos = squeeze(Sigma_th(i,j,:));
-        Cth_neg = squeeze(Sigma_th(j,i,2:end));
-        Sigma_th_full(i,j,:) = [flipud(Cth_neg); Cth_pos];
+        Covth_pos = squeeze(Cov_th(i,j,:));
+        Covth_neg = squeeze(Cov_th(j,i,2:end));
+        Cov_th_full(i,j,:) = [flipud(Covth_neg); Covth_pos];
+
+        Corrth_pos = squeeze(Corr_th(i,j,:));
+        Corrth_neg = squeeze(Corr_th(j,i,2:end));
+        Corr_th_full(i,j,:) = [flipud(Corrth_neg); Corrth_pos];
 
         Cemp_pos = squeeze(Sigma_emp(i,j,:));
         Cemp_neg = squeeze(Sigma_emp(j,i,2:end));
@@ -89,87 +96,23 @@ end
 
 % TIME-DELAYED MUTUAL INFORMATION
 % I_tau = 0.5 * Sigma_th_full.^2; % Taylor approximation to first order
-I_tau = 0.5 * (Sigma_th_full.^2 + Sigma_th_full.^4 / 2); % Taylor approximation to second order
+I_tau = 0.5 * (Corr_th_full.^2 + Corr_th_full.^4 / 2); % Taylor approximation to second order
 % I_tau = I_tau / log(2); % Conversion to bits
-
-%%
-
-
-num_lags = length(lags_full);
-TDMI_full = nan(n,n,num_lags);
-
-for j = 1:n
-    inputs = find(mask(:,j) & S(:,j) > 0); % nodes that influence target j
-    if isempty(inputs) || numel(inputs) < 3
-        continue
-    end
-    
-    Sigma_xx = Sigma_th_full(inputs, inputs, 1); % Sources zero-lag cov
-    
-    for k = 1:num_lags
-        Sigma_xy = Sigma_th_full(inputs, j, k); % Sources-target lagged cov
-        Sigma_yy = Sigma_th_full(j,j,k); % Target zero-lag cov
-        
-        % Gaussian multivariate TDMI
-        I_val = 0.5 * log(det(Sigma_yy) / det(Sigma_yy - Sigma_xy' * pinv(Sigma_xx) * Sigma_xy));
-        
-        % Store TDMI as target j row in upper-triangular positions
-        TDMI_full(inputs,j,k) = I_val; % assign to all inputs → target
-    end
-
-    % Compute determinant argument
-    detArg = Sigma_yy - Sigma_xy' * pinv(Sigma_xx) * Sigma_xy;
-    
-    % Check for negative or tiny determinant
-    if detArg <= 0
-        fprintf('Negative/zero determinant detected: %g\n', detArg);
-    end
-
-
-end
-
-%%
-TDMI_full(isnan(TDMI_full)) = 0;
-figure
-for i=1:size(TDMI_full,3)
-    imagesc(TDMI_full(:,:,i))
-    colorbal
-    drawnow
-end
-
-
-%%
-% Now you can feed TDMI_full and your mask to crosslagcov:
-triuIdx = find(triu(mask,1));
-CLC_TDMI = crosslagcov(TDMI_full, triuIdx);
-
-figure, imagesc(CLC_TDMI)
-
-
-
-
-
-
-
-
-
-%%
 
 % CROSS-LAG COVARIANCE (CLC)
 % triuIdx = find(triu(ones(n), 1));
 triuIdx = find(triu(mask, 1)); % Isolate active pairs
 
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_th_full, triuIdx));
+figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
+nexttile, imagesc(lags_full, lags_full, crosslagcov2(Corr_th_full, triuIdx));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title(sprintf('Theoretical Subject %d', iSub));
-nexttile, imagesc(lags_full, lags_full, crosslagcov(I_tau, triuIdx));
+title(sprintf('Theoretical TLC Subject %d', iSub));
+nexttile, imagesc(lags_full, lags_full, crosslagcov2(I_tau, triuIdx));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Theoretical TDMI Subject %d', iSub));
-% nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_emp_full, triuIdx));
-% axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-% title(sprintf('Empirical Subject %d', iSub));
-
+nexttile, imagesc(lags_full, lags_full, crosslagcov2(Sigma_emp_full, triuIdx));
+axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+title(sprintf('Empirical Subject %d', iSub));
 
 %% FUNCTIONS
 function showtop(S)
@@ -178,7 +121,7 @@ function showtop(S)
     h.LineWidth = abs(G.Edges.Weight)/max(abs(G.Edges.Weight));
 end
 
-function clc = crosslagcov(matrixvec, mask)
+function clc = crosslagcov2(matrixvec, mask)
 %CLC Construct cross-lag covariance matrix (CLC)
 %   matrixvec : series of matrices whose CLC to calculate
 %   mask      : mask for the matrices
@@ -189,4 +132,16 @@ function clc = crosslagcov(matrixvec, mask)
         vecs(:,k) = Ck(mask);
     end
     clc = corr(vecs);
+end
+
+function clc = crosslagcov1(vec, mask)
+%CROSSLAGCOV Construct cross-lag covariance/correlation matrix from arrays
+%   vec      : n_elements x num_lags
+%   mask     : logical array selecting elements to include
+
+    if nargin > 1
+        vec = vec(mask,:);
+    end
+
+    clc = corr(vec);
 end
