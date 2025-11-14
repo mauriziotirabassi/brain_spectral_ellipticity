@@ -23,14 +23,14 @@ Sigma = lyap(A, Sigma_w); % zero-lag covariance
 S = (A * Sigma - Sigma * (A.')); % dC-Cov
 hr = subj.h; % haemodynamic response
 
-% Isolating inactive pairs
+% Isolating inactive pairs (wrong: not active/inactive)
 pct = 99;
 upper_percentile = prctile(S(:), pct);
 lower_percentile = prctile(S(:), 100 - pct);
 mask = (S >= upper_percentile) | (S <= lower_percentile);
 
 % Network topology
-% S_plot = S; S_plot(~mask) = 0; showtop(S_plot);
+S_plot = S; S_plot(~mask) = 0; showtop(S_plot);
 
 % SIMULATION
 % Simulation parameters
@@ -101,18 +101,55 @@ I_tau = 0.5 * (Corr_th_full.^2 + Corr_th_full.^4 / 2); % Taylor approximation to
 
 % CROSS-LAG COVARIANCE (CLC)
 % triuIdx = find(triu(ones(n), 1));
-triuIdx = find(triu(mask, 1)); % Isolate active pairs
+triuIdx = find(triu(mask, 0)); % Isolate active pairs
 
 figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
-nexttile, imagesc(lags_full, lags_full, crosslagcov2(Corr_th_full, triuIdx));
+nexttile(1), imagesc(lags_full, lags_full, crosslagcov2(Corr_th_full, triuIdx));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Theoretical TLC Subject %d', iSub));
-nexttile, imagesc(lags_full, lags_full, crosslagcov2(I_tau, triuIdx));
+nexttile(2), imagesc(lags_full, lags_full, crosslagcov2(I_tau, triuIdx));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Theoretical TDMI Subject %d', iSub));
-nexttile, imagesc(lags_full, lags_full, crosslagcov2(Sigma_emp_full, triuIdx));
+nexttile(3), imagesc(lags_full, lags_full, crosslagcov2(Sigma_emp_full, triuIdx));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title(sprintf('Empirical Subject %d', iSub));
+title(sprintf('Simulation Subject %d', iSub));
+
+%% GRADUAL INCLUSION
+percentiles = 50:1:99;  % change step size if needed
+figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
+% window_width = 10; % e.g. ±5% window
+% centers = 55:1:95; % shift window centers from median toward extremes
+
+for p = percentiles
+    low = prctile(S(:), 50 - (p - 50));
+    high = prctile(S(:), 50 + (p - 50));
+    mask = (S >= low) & (S <= high);
+    triuIdx = find(triu(mask, 0));
+
+    % low = prctile(S(:), 50 - (c - 50));
+    % high = prctile(S(:), 50 + (c - 50));
+    % % Define a narrow band around these edges
+    % band_low = prctile(S(:), max(50 - (c - 50) - window_width/2, 0));
+    % band_high = prctile(S(:), min(50 + (c - 50) + window_width/2, 100));
+
+    % mask = (S >= band_low) & (S <= band_high);
+    % triuIdx = find(triu(mask, 1));
+
+    if isempty(triuIdx)
+        continue;
+    end
+
+    nexttile(1), imagesc(lags_full, lags_full, crosslagcov2(Corr_th_full, triuIdx));
+    axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+    title(sprintf('Theoretical TLC Subject %d %d', iSub, p));
+    nexttile(2), imagesc(lags_full, lags_full, crosslagcov2(I_tau, triuIdx));
+    axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+    title(sprintf('Theoretical TDMI Subject %d', iSub));
+    nexttile(3), imagesc(lags_full, lags_full, crosslagcov2(Sigma_emp_full, triuIdx));
+    axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+    title(sprintf('Simulation Subject %d', iSub));
+    drawnow, pause(1)
+end
 
 %% FUNCTIONS
 function showtop(S)

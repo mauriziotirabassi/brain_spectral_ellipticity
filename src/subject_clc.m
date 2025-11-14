@@ -23,7 +23,7 @@ Sigma = lyap(A, Sigma_w); % zero-lag covariance
 S = (A * Sigma - Sigma * (A.')); % dC-Cov
 hr = subj.h; % haemodynamic response
 
-% Isolating inactive pairs
+% Isolating inactive pairs (wrong)
 pct = 99;
 upper_percentile = prctile(S(:), pct);
 lower_percentile = prctile(S(:), 100 - pct);
@@ -100,7 +100,7 @@ for i = 1:n
     end
 end
 
-% FCD-STYLE SIMILATIRY ACROSS LAGS <--------------------------------------
+% CROSS-LAG COVARIANCE (CLC) <--------------------------------------
 % triuIdx = find(triu(ones(n), 1));
 triuIdx = find(triu(mask, 1)); % Isolate active pairs
 % triuIdx = find(triu(mask | I, 0)); % Isolate active paris and keep diagonal
@@ -113,7 +113,7 @@ nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_emp_full, triuIdx));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Empirical Subject %d', iSub));
 
-%% SINGLE ROWS
+%% SINGLE NODE CLC
 figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
 clc_th = nan(length(lags),length(lags),numel(n));
 clc_emp = nan(length(lags),length(lags),numel(n));
@@ -124,81 +124,17 @@ for i = 1:n
     nexttile(1), imagesc(mask);
     nexttile(2), imagesc(lags, lags, clc_th(:,:,i))
     nexttile(3), imagesc(lags, lags, clc_emp(:,:,i))
-    colorbar, colormap jet
+    colorbar, colormap(magma)
     drawnow, pause(0.2)
 end
+
+%% META CLC
 figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
 mask = find(triu(ones(length(lags)), 0));
-nexttile, imagesc(crosslagcov(clc_th, mask)), colorbar, colormap jet
+nexttile, imagesc(crosslagcov(clc_th, mask)), colorbar, colormap(magma)
 title('Theoretical Meta-CLC')
-nexttile, imagesc(crosslagcov(clc_emp, mask)), colorbar, colormap jet
-title('Empirical Meta-CLC')
-
-%% 2D FOURIER TRANSFORM
-nLags = length(lags_full);
-df = 1 / (nLags * tr);
-freq_axis = (-floor(nLags/2):ceil(nLags/2)-1) * df; % in Hz
-
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-FCDfft_th = log(1 + abs(fftshift(fft2(FCD_th))));
-nexttile, imagesc(freq_axis, freq_axis, FCDfft_th); colormap(jet); colorbar;
-title(sprintf('Theoretical PSD Subject %d', iSub));
-
-sigma = 10; % Approx the number of lag steps corresponding to autocorr decay
-FCD_emp_smooth = imgaussfilt(FCD_emp, sigma);
-FCDfft_emp = log(1 + abs(fftshift(fft2(FCD_emp_smooth))));
-nexttile, imagesc(freq_axis, freq_axis, FCDfft_emp); colormap(jet); colorbar;
-title(sprintf('Empirical PSD Subject %d', iSub));
-
-%% SINOGRAM
-theta = 0:179;
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-[R_th, xp_th] = radon(FCD_th, theta);
-nexttile, imagesc(theta, xp_th, R_th);
-xlabel('Angle (degrees)'); ylabel('Projection position');
-title(sprintf('Theoretical Sinogram Subject %d', iSub));
-
-[R_emp, xp_emp] = radon(FCD_emp, theta);
-nexttile, imagesc(theta, xp_emp, R_emp);
-xlabel('Angle (degrees)'); ylabel('Projection position');
-title(sprintf('Empirical Sinogram Subject %d', iSub));
-
-%% SYNCHRONIZATION
-% Filter to narrow band
-fpass = [0.1, 1.0];
-fs = 1 / tr;
-[b, a] = butter(4, fpass / (fs / 2), 'bandpass'); % 4th-order Butterworth filter
-bold_filt = filtfilt(b, a, bold);
-z = hilbert(bold_filt);
-phi = angle(z);
-
-% figure, axis equal
-% theta = linspace(0, 2*pi, 100);
-% for k = 1:size(phi, 1)
-%     cla
-%     Rvec = mean(exp(1i*phi(k,:)));
-%     plot(cos(theta), sin(theta), 'k--'), hold on
-%     quiver(zeros(1,n), zeros(1,n), cos(phi(k,:)), sin(phi(k,:)), 0, 'b-')
-%     hold on
-%     quiver(0, 0, real(Rvec), imag(Rvec), 0, 'r', 'LineWidth', 2)
-%     title(sprintf('t = %.2f, |R| = %.2f', t(k), abs(Rvec)))
-%     drawnow, pause(.1)
-% end
-
-R = abs(mean(exp(1i*phi(:,:)), 2));
-x = t_sim(:);
-r = R(:);
-win_sec = 30;
-dt = x(2)-x(1);
-w = max(1, round(win_sec / dt));
-mu = movmean(r, w); % centered moving mean
-s  = movstd (r, w, 0); % centered moving std (sample std)
-
-figure, hold on
-fill([x; flipud(x)], [mu+s; flipud(mu-s)], [0.9 0.9 1])
-plot(x, r, 'b'), plot(x, mu, 'r-', 'LineWidth', 2)
-yline(mean(r), 'k--', 'LineWidth', 2)                      
-xlabel('Time (s)'); ylabel('R(t)'); title('Moving mean ± moving std')
+nexttile, imagesc(crosslagcov(clc_emp, mask)), colorbar, colormap(magma)
+title('Simulated Meta-CLC')
 
 %% FUNCTIONS
 function animate3(data)

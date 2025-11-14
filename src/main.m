@@ -1,15 +1,15 @@
 clear; clc; close all
 
 rng(42);
-n = 3;
+n = 5;
 I = eye(n);
 Sigma_w = 0.1 * I; % Uncorrelated noise
 
 % Derive A
 S = randn(n);
 S = 0.5 * (S - S'); % Ensure skew-symmetry
-Sigma = [7 0 3; 0 1 0; 3 0 3];
-% Sigma = I;
+% Sigma = [7 0 3; 0 1 0; 3 0 3];
+Sigma = I;
 A = (-1/2 * Sigma_w + S) / Sigma;
 
 % Derive Sigma
@@ -181,12 +181,12 @@ figure;
 for i = 1:n
     for j = 1:n
         subplot(n,n,(i-1)*n+j);
-        plot(lags_full, squeeze(Sigma_th_full(i,j,:)),'r-'); hold on;
+        plot(lags_full, squeeze(Sigma_th_full(i,j,:)),'b-'); hold on;
         plot(lags_full, squeeze(Sigma_emp_full(i,j,:)),'b--');
         title(sprintf('\\Sigma_{%d%d}(\\tau)',i,j));
         xlabel('\tau'); grid on;
         if i==1 && j==1
-            legend('Theory','Empirical');
+            legend('Theory','Simulation');
         end
     end
 end
@@ -210,7 +210,7 @@ for i = 1:n
         title(sprintf('Sym/Asym C_{%d%d}(\\tau)', i, j));
         xlabel('\tau'); grid on;
         if i==1 && j==1
-            legend('Sym (th)','Asym (th)','Sym (emp)','Asym (emp)');
+            legend('Sym (th)','Asym (th)','Sym (sym)','Asym (sym)');
         end
     end
 end
@@ -223,7 +223,7 @@ sgtitle('Symmetric (Even) vs Asymmetric (Odd) Covariance Components');
 %     pause(0.01)
 % end
 
-%% FCD-STYLE SIMILATIRY ACROSS LAGS
+%% CROSS-LAG CORRELATION (CLC)
 % Seeing at what lag the dynamics are the same.
 triuIdx = find(triu(ones(n),1));
 
@@ -246,14 +246,43 @@ FCD_emp = corr(vecs_em);
 % Plot
 figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
 nexttile, imagesc(lags_full, lags_full, FCD_th);
-axis square; colorbar; colormap jet;
+axis square; colorbar; colormap(magma);
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title('Theoretical Time-Lagged Covariance Dynamics');
 
 nexttile, imagesc(lags_full, lags_full, FCD_emp);
-axis square; colorbar; colormap jet;
+axis square; colorbar; colormap(magma);
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title('Empirical Time-Lagged Covariance Dynamics');
+
+%% CLC 2D FOURIER TRANSFORM
+nLags = length(lags_full);
+df = 1 / (nLags * tr);
+freq_axis = (-floor(nLags/2):ceil(nLags/2)-1) * df; % in Hz
+
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+FCDfft_th = log(1 + abs(fftshift(fft2(FCD_th))));
+nexttile, imagesc(freq_axis, freq_axis, FCDfft_th); colormap(jet); colorbar;
+title(sprintf('Theoretical PSD Subject %d', iSub));
+
+sigma = 10; % Approx the number of lag steps corresponding to autocorr decay
+FCD_emp_smooth = imgaussfilt(FCD_emp, sigma);
+FCDfft_emp = log(1 + abs(fftshift(fft2(FCD_emp_smooth))));
+nexttile, imagesc(freq_axis, freq_axis, FCDfft_emp); colormap(jet); colorbar;
+title(sprintf('Empirical PSD Subject %d', iSub));
+
+%% CLC SINOGRAM
+theta = 0:179;
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+[R_th, xp_th] = radon(FCD_th, theta);
+nexttile, imagesc(theta, xp_th, R_th);
+xlabel('Angle (degrees)'); ylabel('Projection position');
+title(sprintf('Theoretical Sinogram Subject %d', iSub));
+
+[R_emp, xp_emp] = radon(FCD_emp, theta);
+nexttile, imagesc(theta, xp_emp, R_emp);
+xlabel('Angle (degrees)'); ylabel('Projection position');
+title(sprintf('Empirical Sinogram Subject %d', iSub));
 
 %% PSD MATRIX
 Fs = 1 / tr;

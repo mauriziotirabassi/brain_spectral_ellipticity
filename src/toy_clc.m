@@ -1,13 +1,15 @@
 clear; clc; %close all
 
 rng(42); % This affects simulated noise injections
-n = 10; I = eye(n);
-Sigma_w = 0.1 * I; % Uncorrelated noise
+n = 74; I = eye(n);
+Sigma_w = 10 * I; % Uncorrelated noise
 
 % Topology
-topology = 'Ring';
-S = buildS(n, topology);
-showtop(S)
+% topology = 'Ring';
+% S = buildS(n, topology);
+% showtop(S)
+
+S = zeros(n);
 
 % Initial energy distribution
 Sigma = I; % Balanced
@@ -53,7 +55,7 @@ for k = 1:numel(lags)
     Sigma_th(:,:,k) = Sigma_tau(tau) ./ normMat_th; % Pearson correlation
 end
 
-% Empirical covariance
+% Simulated covariance
 Sigma_emp0 = (y_stoch' * y_stoch) / size(y_stoch,1);
 stds_emp = sqrt(diag(Sigma_emp0));
 normMat_emp = stds_emp * stds_emp';
@@ -80,98 +82,44 @@ for i = 1:n
     end
 end
 
-% FCD-STYLE SIMILATIRY ACROSS LAGS <--------------------------------------
-% mask = find(triu(ones(n),1)); % Include all pairs
+% CROSS-LAG COVARIANCE (CLC) <--------------------------------------
+mask = find(triu(ones(n),0)); % Include all pairs
 
 % Isolate only active pairs: not really useful here because the ones with
 % dC-Cov null actually do not contribute, so no noise
-mask = find(triu(abs(S) > 0, 1));
+% mask = find(triu(abs(S) > 0, 1));
 
 % Isolate but keep the diagonal: not useful for analyzing periodic patterns
 % due to causal connections. It just adds useless information along y=-x
 % and their parallels.
 % mask = find(triu(abs(S) > 0 | eye(size(S))));
 
-% Plot
 figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
 nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_th_full, mask));
-axis square; colorbar; colormap(curl);
+axis square; colorbar; colormap(magma);
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title(sprintf('Theoretical %s', topology));
+% title(sprintf('Theoretical %s', topology));
 
 nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_emp_full, mask));
-axis square; colorbar; colormap(curl);
+axis square; colorbar; colormap(magma);
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title(sprintf('Empirical %s', topology));
+% title(sprintf('Empirical %s', topology));
 
 %% SINGLE ROWS
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-clc = nan(length(lags_full),length(lags_full),numel(n));
-for i = 1:n
-    mask = false(size(A)); mask(:, i) = true;
-    clc(:,:,i) = crosslagcov(Sigma_th_full, mask);
-    nexttile(1), imagesc(mask);
-    nexttile(2), imagesc(lags_full, lags_full, clc(:,:,i))
-    colorbar, colormap jet
-    drawnow, pause(0.2)
-end
-mask = find(triu(ones(length(lags_full)), 0));
-figure, imagesc(crosslagcov(clc, mask)), colorbar, colormap jet
-
-%%
-% % 2D FOURIER TRANSFORM
-% nLags = length(lags_full);
-% df = 1 / (nLags * tr);
-% freq_axis = (-floor(nLags/2):ceil(nLags/2)-1) * df; % in Hz
-% 
 % figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-% FCDfft_th = log(1 + abs(fftshift(fft2(FCD_th))));
-% nexttile, imagesc(freq_axis, freq_axis, FCDfft_th); colormap(jet); colorbar;
-% title(sprintf('Theoretical PSD %s', topology));
-% 
-% FCDfft_emp = log(1 + abs(fftshift(fft2(FCD_emp))));
-% nexttile, imagesc(freq_axis, freq_axis, FCDfft_emp); colormap(jet); colorbar;
-% title(sprintf('Empirical PSD %s', topology));
-% 
-% % SINOGRAM
-% theta = 0:179;
-% figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-% [R_th, xp_th] = radon(FCD_th, theta);
-% nexttile, imagesc(theta, xp_th, R_th);
-% xlabel('Angle (degrees)'); ylabel('Projection position');
-% title(sprintf('Theoretical Sinogram %s', topology));
-% 
-% [R_emp, xp_emp] = radon(FCD_emp, theta);
-% nexttile, imagesc(theta, xp_emp, R_emp);
-% xlabel('Angle (degrees)'); ylabel('Projection position');
-% title(sprintf('Empirical Sinogram %s', topology));
+% clc = nan(length(lags_full),length(lags_full),numel(n));
+% for i = 1:n
+%     mask = false(size(A)); mask(:, i) = true;
+%     clc(:,:,i) = crosslagcov(Sigma_th_full, mask);
+%     nexttile(1), imagesc(mask);
+%     nexttile(2), imagesc(lags_full, lags_full, clc(:,:,i))
+%     colorbar, colormap(magma)
+%     drawnow, pause(0.2)
+% end
+% mask = find(triu(ones(length(lags_full)), 0));
+% figure, imagesc(crosslagcov(clc, mask)), colorbar, colormap(magma)
 
-%% PATTERN FAMILY ISOLATION (HIERARCHICAL CLUSTERING)
-D_th = squareform(1 - FCD_th); Z_th = linkage(D_th, 'average');
-D_emp = squareform(1 - FCD_emp); Z_emp = linkage(D_emp, 'average');
-
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, dendrogram(Z_th); nexttile, dendrogram(Z_emp);
-
-k = 4; % number of clusters you want
-clusters_emp = cluster(Z_emp, 'maxclust', k);
-clusters_th = cluster(Z_th, 'maxclust', k);
-
-%%
-X = vecs_th';   % size: nLags x nEdges
-[coeff, score, latent, ~, explained] = pca(X);
-
-% coeff:   edges × PCs   (families: which edges define each PC)
-% score:   lags × PCs    (how each lag expresses those families)
-% latent:  eigenvalues   (variance of each PC)
-% explained: % variance explained per PC
-
-% Example: plot first two PCs across lags (family activations)
-figure; plot(lags_full, score(:,1:2));
-xlabel('Lag index'); ylabel('Activation'); legend('PC1','PC2');
-title('Family activations across lags');
-
-
+%% FUNCTIONS
 function S = buildS(n, topology)
 %BUILD S Construct skew-symmetric adjacency matrix S
 %   n        : number of nodes

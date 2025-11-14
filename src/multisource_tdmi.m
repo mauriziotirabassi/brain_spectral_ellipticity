@@ -105,10 +105,11 @@ TDMI = zeros(n,num_lags);
 red = nan(n,num_lags);
 syn = nan(n,num_lags);
 for j = 1:n
+    % inputs = setdiff(1:n, j);  % All nodes except the target itself
     inputs = find(S(:,j) > 0); % Nodes that influence target j
-    if isempty(inputs)
-        continue
-    end
+    % if isempty(inputs)
+    %     continue
+    % end
 
     Sigma_xx = Cov_th_full(inputs, inputs, 1); % Sources zero-lag cov
     Sigma_yy = Cov_th_full(j, j, 1); % Target zero-lag cov
@@ -137,10 +138,11 @@ title(sprintf('Theoretical Multisource Synergy Subject %d', iSub));
 %%
 
 % CROSS-LAG COVARIANCE (CLC)
-% triuIdx = find(triu(ones(n), 1));
-triuIdx = find(triu(mask, 1)); % Isolate active pairs
+% mask = S==0;
+triuIdx = find(triu(ones(n), 1));
+% triuIdx = find(triu(mask, 0)); % Isolate active pairs
 
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
 nexttile, imagesc(lags_full, lags_full, crosslagcov2(Corr_th_full, triuIdx));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Theoretical TLC Subject %d', iSub));
@@ -150,9 +152,9 @@ title(sprintf('Theoretical TDMI Subject %d', iSub));
 % nexttile, imagesc(lags_full, lags_full, crosslagcov1(abs(TDMI)))
 % axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 % title(sprintf('Theoretical Multisource TDMI Subject %d', iSub));
-% nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_emp_full, triuIdx));
-% axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-% title(sprintf('Empirical Subject %d', iSub));
+nexttile, imagesc(lags_full, lags_full, crosslagcov2(Sigma_emp_full, triuIdx));
+axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+title(sprintf('Simulated Subject %d', iSub));
 
 %% FUNCTIONS
 function showtop(S)
