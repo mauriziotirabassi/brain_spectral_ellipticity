@@ -179,10 +179,7 @@ function clc = crosslagcov(matrixvec, mask)
 %   matrixvec : series of matrices whose CLC to calculate
 %   mask      : mask for the matrices
 
-    vecs = [];
-    for k = 1:size(matrixvec, 3)
-        Ck = matrixvec(:,:,k);
-        vecs(:,k) = Ck(mask);
-    end
+    vecs = reshape(matrixvec, [], size(matrixvec,3)); % vectorize each matrix
+    vecs = vecs(mask(:), :); % apply mask
     clc = corr(vecs);
 end

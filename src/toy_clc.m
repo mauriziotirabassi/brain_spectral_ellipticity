@@ -1,8 +1,8 @@
 clear; clc; %close all
 
 rng(42); % This affects simulated noise injections
-n = 74; I = eye(n);
-Sigma_w = 10 * I; % Uncorrelated noise
+n = 2; I = eye(n);
+Sigma_w = 100 * I; % Uncorrelated noise
 
 % Topology
 % topology = 'Ring';
@@ -49,38 +49,40 @@ lags = (0:maxLag) * tr;
 Sigma_tau = @(tau) expm(A * tau) * Sigma;
 stds_th = sqrt(diag(Sigma));
 normMat_th = stds_th * stds_th.';
-Sigma_th = nan(n,n,numel(lags));
+Cov_th = nan(n,n,numel(lags));
+% Corr_th = nan(n,n,numel(lags));
 for k = 1:numel(lags)
     tau = lags(k);
-    Sigma_th(:,:,k) = Sigma_tau(tau) ./ normMat_th; % Pearson correlation
+    Cov_th(:,:,k) = Sigma_tau(tau);
 end
+Corr_th = Cov_th ./ normMat_th; % Pearson correlation
 
 % Simulated covariance
 Sigma_emp0 = (y_stoch' * y_stoch) / size(y_stoch,1);
 stds_emp = sqrt(diag(Sigma_emp0));
 normMat_emp = stds_emp * stds_emp';
+T = size(y_stoch, 1);
 Sigma_emp = nan(n,n,numel(lags));
 for k = 0:maxLag
     X = y_stoch(1:end-k, :);
     X_lag = y_stoch(1+k:end, :);
-    Sigma_emp(:,:,k+1) = (X_lag' * X) / (size(y_stoch, 1) - k) ./ normMat_emp;
+    Sigma_emp(:,:,k+1) = (X_lag' * X) / (T - k);
 end
+Sigma_emp = Sigma_emp ./ normMat_emp;
 
 % Extend to negative lags based on property C_ij(-tau) = C_ji(tau)
 lags_full = [-fliplr(lags(2:end)), lags]; % Symmetric lag vector
-Sigma_th_full = nan(n,n,numel(lags_full));
-Sigma_emp_full = nan(n,n,numel(lags_full));
-for i = 1:n
-    for j = 1:n
-        Cth_pos = squeeze(Sigma_th(i,j,:));
-        Cth_neg = squeeze(Sigma_th(j,i,2:end));
-        Sigma_th_full(i,j,:) = [flipud(Cth_neg); Cth_pos];
+Cov_th_neg = flip(Cov_th(:,:,2:end), 3);   % flip along 3rd dimension (lags)
+Cov_th_neg = permute(Cov_th_neg, [2 1 3]); % swap i<->j for negative lags
+Cov_th_full = cat(3, Cov_th_neg, Cov_th);  % concatenate along 3rd dimension
 
-        Cemp_pos = squeeze(Sigma_emp(i,j,:));
-        Cemp_neg = squeeze(Sigma_emp(j,i,2:end));
-        Sigma_emp_full(i,j,:) = [flipud(Cemp_neg); Cemp_pos];
-    end
-end
+Corr_th_neg = flip(Corr_th(:,:,2:end), 3);
+Corr_th_neg = permute(Corr_th_neg, [2 1 3]);
+Corr_th_full = cat(3, Corr_th_neg, Corr_th);
+
+Sigma_emp_neg = flip(Sigma_emp(:,:,2:end), 3);
+Sigma_emp_neg = permute(Sigma_emp_neg, [2 1 3]);
+Sigma_emp_full = cat(3, Sigma_emp_neg, Sigma_emp);
 
 % CROSS-LAG COVARIANCE (CLC) <--------------------------------------
 mask = find(triu(ones(n),0)); % Include all pairs
@@ -95,13 +97,13 @@ mask = find(triu(ones(n),0)); % Include all pairs
 % mask = find(triu(abs(S) > 0 | eye(size(S))));
 
 figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_th_full, mask));
-axis square; colorbar; colormap(magma);
+nexttile, imagesc(lags_full, lags_full, crosslagcov(Corr_th_full, mask));
+axis square; clim([-1 1]); colorbar; colormap(magma);
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 % title(sprintf('Theoretical %s', topology));
 
 nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_emp_full, mask));
-axis square; colorbar; colormap(magma);
+axis square; clim([-1 1]); colorbar; colormap(magma);
 xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 % title(sprintf('Empirical %s', topology));
 
@@ -158,11 +160,7 @@ function clc = crosslagcov(matrixvec, mask)
 %CLC Construct cross-lag covariance matrix (CLC)
 %   matrixvec : series of matrices whose CLC to calculate
 %   mask      : mask for the matrices
-
-    vecs = [];
-    for k = 1:size(matrixvec, 3)
-        Ck = matrixvec(:,:,k);
-        vecs(:,k) = Ck(mask);
-    end
+    vecs = reshape(matrixvec, [], size(matrixvec,3)); % vectorize each matrix
+    vecs = vecs(mask(:), :); % apply mask
     clc = corr(vecs);
 end
