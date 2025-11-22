@@ -50,7 +50,6 @@ Sigma_tau = @(tau) expm(A * tau) * Sigma;
 stds_th = sqrt(diag(Sigma));
 normMat_th = stds_th * stds_th.';
 Cov_th = nan(n,n,numel(lags));
-% Corr_th = nan(n,n,numel(lags));
 for k = 1:numel(lags)
     tau = lags(k);
     Cov_th(:,:,k) = Sigma_tau(tau);

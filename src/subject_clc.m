@@ -16,7 +16,7 @@ D = load(distFile,'mtx_euc_dis').mtx_euc_dis;
 % Subject data
 iSub = 5; % subject number
 subj = load(fullfile(outDir,files{iSub}));
-A = subj.A * 2; % effective connectivity
+A = subj.A; % effective connectivity
 n = size(A, 1); I = eye(n);
 Sigma_w = I * subj.output.eff_conn.NoiseVar; % noise covariance
 Sigma = lyap(A, Sigma_w); % zero-lag covariance
@@ -30,21 +30,21 @@ lower_percentile = prctile(S(:), 100 - pct);
 mask = (S >= upper_percentile) | (S <= lower_percentile);
 
 % Network topology
-S_plot = S; S_plot(~mask) = 0; showtop(S_plot);
+S_plot = S; S_plot(~mask) = 0; % showtop(S_plot);
 
 % SIMULATION
 % Simulation parameters
 n_time = 1e3; %1e4; % Simulation time steps
 transient_length = 1e3;
-tr = 0.1; % Sampling period <---------------------------------------------
+tr = 0.5; % Sampling period <---------------------------------------------
 t = 0 : tr : (n_time + transient_length - 1) * tr;
 t_sim = t(transient_length + 1:end);
 
-% Simulate
+% Simulation
 sys = ss(A, eye(n), eye(n), zeros(n));
 w = mvnrnd(zeros(1, n), Sigma_w, length(t)); % Generate noise input
 x = lsim(sys, w, t); % Simulate LTI response to noise
-x = x(transient_length + 1:end,:); % Remove transient
+x = x(transient_length + 1:end, :); % Remove transient
 
 % BOLD response
 bold = zeros(n_time, n);
@@ -65,76 +65,83 @@ lags = (0:maxLag) * tr;
 
 % Theoretical covariance
 Sigma_tau = @(tau) expm(A * tau) * Sigma;
-stds_th = sqrt(diag(Sigma));
-normMat_th = stds_th * stds_th.';
-Sigma_th = nan(n,n,numel(lags));
+Cov_th = nan(n,n,numel(lags));
 for k = 1:numel(lags)
     tau = lags(k);
-    Sigma_th(:,:,k) = Sigma_tau(tau) ./ normMat_th; % Pearson correlation
+    Cov_th(:,:,k) = Sigma_tau(tau);
 end
+stds_th = sqrt(diag(Sigma));
+normMat_th = stds_th * stds_th.';
+Corr_th = Cov_th ./ normMat_th; % Pearson correlation
 
-% Empirical covariance
-Sigma_emp0 = (x' * x) / size(x,1);
-stds_emp = sqrt(diag(Sigma_emp0));
+% Simulated covariance
+Cov_sim0 = (x' * x) / size(x,1);
+stds_emp = sqrt(diag(Cov_sim0));
 normMat_emp = stds_emp * stds_emp';
-Sigma_emp = nan(n,n,numel(lags));
+T = size(x, 1);
+Cov_sim = nan(n,n,numel(lags));
 for k = 0:maxLag
     X = x(1:end-k, :);
     X_lag = x(1+k:end, :);
-    Sigma_emp(:,:,k+1) = (X_lag' * X) / (size(x, 1) - k) ./ normMat_emp;
+    Cov_sim(:,:,k+1) = (X_lag' * X) / (T - k);
 end
+Corr_sim = Cov_sim ./ normMat_emp;
 
-% Extend to negative lags based on property C_ij(-tau) = C_ji(tau)
-lags_full = [-fliplr(lags(2:end)), lags]; % Symmetric lag vector
-Sigma_th_full = nan(n,n,numel(lags_full));
-Sigma_emp_full = nan(n,n,numel(lags_full));
-for i = 1:n
-    for j = 1:n
-        Cth_pos = squeeze(Sigma_th(i,j,:));
-        Cth_neg = squeeze(Sigma_th(j,i,2:end));
-        Sigma_th_full(i,j,:) = [flipud(Cth_neg); Cth_pos];
+% % Extend to negative lags based on property C_ij(-tau) = C_ji(tau)
+% lags_full = [-fliplr(lags(2:end)), lags];
+% Cov_th_neg = flip(Cov_th(:,:,2:end), 3); % Theoretical covariance
+% Cov_th_neg = permute(Cov_th_neg, [2 1 3]);
+% Cov_th_full = cat(3, Cov_th_neg, Cov_th);
+% Corr_th_neg = flip(Corr_th(:,:,2:end), 3); % Theoretical correlation
+% Corr_th_neg = permute(Corr_th_neg, [2 1 3]);
+% Corr_th_full = cat(3, Corr_th_neg, Corr_th);
+% Sigma_emp_neg = flip(Sigma_emp(:,:,2:end), 3); % Simulated correlation
+% Sigma_emp_neg = permute(Sigma_emp_neg, [2 1 3]);
+% Sigma_emp_full = cat(3, Sigma_emp_neg, Sigma_emp);
 
-        Cemp_pos = squeeze(Sigma_emp(i,j,:));
-        Cemp_neg = squeeze(Sigma_emp(j,i,2:end));
-        Sigma_emp_full(i,j,:) = [flipud(Cemp_neg); Cemp_pos];
-    end
-end
-
-% CROSS-LAG COVARIANCE (CLC) <--------------------------------------
+% CROSS-LAG CORRELATION (CLC)
 % triuIdx = find(triu(ones(n), 1));
-triuIdx = find(triu(mask, 1)); % Isolate active pairs
+% triuIdx = find(triu(mask, 1)); % Isolate active pairs
 % triuIdx = find(triu(mask | I, 0)); % Isolate active paris and keep diagonal
 
 figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_th_full, triuIdx));
+nexttile, imagesc(lags, lags, crosslag_corr(Corr_th));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title(sprintf('Theoretical Subject %d', iSub));
-nexttile, imagesc(lags_full, lags_full, crosslagcov(Sigma_emp_full, triuIdx));
+title(sprintf('Theoretical CLCorr Subject %d', iSub));
+nexttile, imagesc(lags, lags, crosslag_corr(Corr_sim));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-title(sprintf('Empirical Subject %d', iSub));
+title(sprintf('Simulated CLCorr Subject %d', iSub));
+
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, imagesc(lags, lags, crosslag_cos(Corr_th));
+axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+title(sprintf('Theoretical CLCos Subject %d', iSub));
+nexttile, imagesc(lags, lags, crosslag_cos(Corr_sim));
+axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
+title(sprintf('Simulated CLCos Subject %d', iSub));
 
 %% SINGLE NODE CLC
-figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
-clc_th = nan(length(lags),length(lags),numel(n));
-clc_emp = nan(length(lags),length(lags),numel(n));
-for i = 1:n
-    mask = false(size(A)); mask(:, i) = true;
-    clc_th(:,:,i) = crosslagcov(Sigma_th, mask);
-    clc_emp(:,:,i) = crosslagcov(Sigma_emp, mask);
-    nexttile(1), imagesc(mask);
-    nexttile(2), imagesc(lags, lags, clc_th(:,:,i))
-    nexttile(3), imagesc(lags, lags, clc_emp(:,:,i))
-    colorbar, colormap(magma)
-    drawnow, pause(0.2)
-end
+% figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
+% clc_th = nan(length(lags),length(lags),numel(n));
+% clc_emp = nan(length(lags),length(lags),numel(n));
+% for i = 1:n
+%     mask = false(size(A)); mask(:, i) = true;
+%     clc_th(:,:,i) = crosslag_corr(Corr_th, mask);
+%     clc_emp(:,:,i) = crosslag_corr(Corr_sim, mask);
+%     nexttile(1), imagesc(mask);
+%     nexttile(2), imagesc(lags, lags, clc_th(:,:,i))
+%     nexttile(3), imagesc(lags, lags, clc_emp(:,:,i))
+%     colorbar, colormap(magma)
+%     drawnow, pause(0.2)
+% end
 
 %% META CLC
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-mask = find(triu(ones(length(lags)), 0));
-nexttile, imagesc(crosslagcov(clc_th, mask)), colorbar, colormap(magma)
-title('Theoretical Meta-CLC')
-nexttile, imagesc(crosslagcov(clc_emp, mask)), colorbar, colormap(magma)
-title('Simulated Meta-CLC')
+% figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+% mask = find(triu(ones(length(lags)), 0));
+% nexttile, imagesc(crosslag_corr(clc_th, mask)), colorbar, colormap(magma)
+% title('Theoretical Meta-CLC')
+% nexttile, imagesc(crosslag_corr(clc_emp, mask)), colorbar, colormap(magma)
+% title('Simulated Meta-CLC')
 
 %% FUNCTIONS
 function animate3(data)
@@ -174,12 +181,18 @@ function showtop(S)
     h.LineWidth = abs(G.Edges.Weight)/max(abs(G.Edges.Weight));
 end
 
-function clc = crosslagcov(matrixvec, mask)
-%CLC Construct cross-lag covariance matrix (CLC)
+function C = crosslag_corr(matrixvec, mask)
+%CROSSLAG_CORR Construct cross-lag covariance matrix (CLC) Pearson correaltion
 %   matrixvec : series of matrices whose CLC to calculate
 %   mask      : mask for the matrices
-
     vecs = reshape(matrixvec, [], size(matrixvec,3)); % vectorize each matrix
-    vecs = vecs(mask(:), :); % apply mask
-    clc = corr(vecs);
+    if nargin >= 2 && ~isempty(mask), vecs = vecs(mask(:), :); end
+    C = corr(vecs);
+end
+
+function C = crosslag_cos(matrixvec, mask)
+%CROSSLAG_COS cosine similarity
+    vecs = reshape(matrixvec, [], size(matrixvec,3));
+    if nargin >= 2 && ~isempty(mask), vecs = vecs(mask(:), :); end
+    C = (vecs' * vecs) ./ (sqrt(sum(vecs.^2,1))' * sqrt(sum(vecs.^2,1)));
 end

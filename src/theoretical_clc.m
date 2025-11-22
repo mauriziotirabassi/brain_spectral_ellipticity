@@ -3,7 +3,7 @@ rng(42);
 
 n = 2; I = eye(n);
 Sigma_w = I;
-A = [-.02, 0; 0, -.2];
+A = [-.02, -.1; .1, -.2];
 Sigma = lyap(A, Sigma_w);
 S = 0.5 * (A * Sigma - Sigma * (A.'));
 
@@ -27,8 +27,8 @@ S = 0.5 * (A * Sigma - Sigma * (A.'));
 % showtop(S);
 
 % TIME-LAGGED AUTO/CROSS-COVARIANCE & CORRELATION FUNCTIONS
-maxLag = 1000; % Number of lags to evaluate (excluding zero lag)
-delta_tau = 0.1;
+maxLag = 10000; % Number of lags to evaluate (excluding zero lag)
+delta_tau = 0.01;
 lags = (0:maxLag) * delta_tau;
 
 % Theoretical covariance
@@ -56,30 +56,56 @@ for i = 1:npl
 end
 sgtitle('Auto/Cross-Covariance Functions');
 
-% CROSS-LAG COVARIANCE (CLC)
-mask = find(ones(n)); % All
-% mask = find(~eye(n)); % Only off-diagonal elements
-mask = find(eye(n)); % Only diagonal elements
-C_corr = crosslag_corr(Corr_th, mask);
-C_corr(tril(true(size(C_corr)), -1)) = NaN;
+% TODO: Select single node lead or lag profile.
 
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, h = imagesc(lags, lags, C_corr);
+X = reshape(Corr_th, [], size(Corr_th,3));
+
+%% CROSS-LAG COVARIANCE
+% Raw Gram across lags (no centering, no scaling)
+G_raw  = X' * X; % m x m
+G_raw(tril(true(size(G_raw)), -1)) = NaN;
+
+% Cosine similarity across lags (normalize each column by its L2 norm)
+colL2  = sqrt(sum(X.^2, 1)); % 1 x m
+colL2(colL2 == 0) = eps;
+G_cos  = (X' * X) ./ (colL2' * colL2); % m x m
+G_cos(tril(true(size(G_cos)), -1)) = NaN;
+
+% Pearson correlation across lags (demean columns then normalize)
+% (equivalent to corr(X) up to tiny numerical noise)
+Xc = X - mean(X, 1); % demean columns
+colL2c = sqrt(sum(Xc.^2, 1)); % 1 x m (L2 of demeaned columns)
+colL2c(colL2c == 0) = eps;
+G_corr = (Xc' * Xc) ./ (colL2c' * colL2c); % m x m
+G_corr(tril(true(size(G_corr)), -1)) = NaN;
+
+figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
+nexttile, h = imagesc(lags, lags, G_raw); % G_raw
 axis square; clim([-1 1]); colorbar; colormap(magma);
-xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-set(h, 'AlphaData', ~isnan(C_corr));
+xlabel('Lag \tau_1'); ylabel('Lag \tau_2'); set(h, 'AlphaData', ~isnan(G_raw));
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
-title('Pearson Correlation')
-
-C_cos = crosslag_cos(Corr_th, mask);
-C_cos(tril(true(size(C_cos)), -1)) = NaN;
-
-nexttile, h = imagesc(lags, lags, C_cos);
+title(sprintf('Dot Product'))
+nexttile, h = imagesc(G_cos); % G_cos
 axis square; clim([-1 1]); colorbar; colormap(magma);
-xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
-set(h, 'AlphaData', ~isnan(C_cos));
+xlabel('Lag \tau_1'); ylabel('Lag \tau_2'); set(h, 'AlphaData', ~isnan(G_cos));
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
-title('Cosine Similarity')
+title(sprintf('Cosine Similarity'))
+nexttile, h = imagesc(G_corr); % G_cos
+axis square; clim([-1 1]); colorbar; colormap(magma);
+xlabel('Lag \tau_1'); ylabel('Lag \tau_2'); set(h, 'AlphaData', ~isnan(G_corr));
+set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
+title(sprintf('Pearson Correlation'))
+
+%% TIME-LAGGED COVARIANCE EIGENFUNCTIONS
+[U, Sig, V] = svd(X, 'econ'); % V columns are eigenvectors of X'X
+
+figure, tiledlayout(4, 1, 'TileSpacing','compact','Padding','compact');
+for r = 1:4
+    time_mode = V(:, r);
+    nexttile(r), plot(lags, time_mode); xlabel('\tau'); title(sprintf('Temporal mode %d', r)); grid on;
+end
+
+diag(Sig).^2 ./ sum(diag(Sig).^2) % Energy captured
 
 %% SINGLE ROWS
 % figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
@@ -94,50 +120,6 @@ title('Cosine Similarity')
 % end
 % mask = find(triu(ones(length(lags_full)), 0));
 % figure, imagesc(crosslagcov(clc, mask)), colorbar, colormap(magma)
-
-%%
-% Put this right after vecs = reshape(...) inside crosslag_cos or in the workspace
-vecs = reshape(Corr_th, [], size(Corr_th,3));   % same reshape you use
-fprintf('size(vecs) = [%d %d]\n', size(vecs,1), size(vecs,2));
-
-% show first few columns
-disp('first 4 columns of vecs (rows x cols):');
-disp(vecs(:, 1:min(4,size(vecs,2))));
-
-% check if any column is exactly proportional to the first (exact equality of ratio)
-ratios = nan(size(vecs,2),1);
-for k=1:size(vecs,2)
-    % avoid division by zero: find index of the first nonzero entry in col1
-    idx = find(vecs(:,1) ~= 0, 1);
-    if isempty(idx)
-        ratios(k) = NaN;
-    else
-        ratios(k) = vecs(idx,k)/vecs(idx,1);   % if proportional, this ratio should satisfy vecs(:,k)==ratio*vecs(:,1)
-    end
-end
-fprintf('ratio of each column to col1 at first nonzero row: (first 8)\\n');
-disp(ratios(1:min(8,end))');
-
-% check exact proportionality boolean
-isProp = false(1,size(vecs,2));
-for k=1:size(vecs,2)
-    r = ratios(k);
-    if ~isnan(r)
-        isProp(k) = all(vecs(:,k) == r * vecs(:,1));
-    end
-end
-fprintf('any column exactly proportional to column1? %d (1=yes)\n', any(isProp));
-
-% check pairwise cosine numerically and min/max
-dotp = vecs' * vecs;
-norms = sqrt(sum(vecs.^2,1));
-den = norms' * norms;
-Ccheck = dotp ./ den;
-fprintf('min(Ccheck) = %.17g, max(Ccheck) = %.17g\n', min(Ccheck(:)), max(Ccheck(:)));
-
-% check rank of vector set
-fprintf('rank(vecs) = %d\n', rank(vecs));
-
 
 %% FUNCTIONS
 function S = buildS(n, topology)
