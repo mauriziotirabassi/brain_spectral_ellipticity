@@ -62,21 +62,20 @@ X = reshape(Corr_th, [], size(Corr_th,3));
 
 %% CROSS-LAG COVARIANCE
 % Raw Gram across lags (no centering, no scaling)
-G_raw  = X' * X; % m x m
+G_raw = X' * X / (size(X, 1) -1); % m x m
 G_raw(tril(true(size(G_raw)), -1)) = NaN;
 
 % Cosine similarity across lags (normalize each column by its L2 norm)
-colL2  = sqrt(sum(X.^2, 1)); % 1 x m
-colL2(colL2 == 0) = eps;
-G_cos  = (X' * X) ./ (colL2' * colL2); % m x m
+X_cos = X ./ vecnorm(X, 2, 1);
+G_cos = X_cos' * X_cos;
+% D = pdist2(X', X', 'cosine'); % pairwise cosine distance
+% G_cos = 1 - D; % convert distance to similarity
 G_cos(tril(true(size(G_cos)), -1)) = NaN;
 
 % Pearson correlation across lags (demean columns then normalize)
-% (equivalent to corr(X) up to tiny numerical noise)
-Xc = X - mean(X, 1); % demean columns
-colL2c = sqrt(sum(Xc.^2, 1)); % 1 x m (L2 of demeaned columns)
-colL2c(colL2c == 0) = eps;
-G_corr = (Xc' * Xc) ./ (colL2c' * colL2c); % m x m
+X_corr = (X - mean(X, 1)) ./ std(X, 0, 1);
+G_corr = (X_corr' * X_corr) / (size(X, 1) - 1);
+% G_corr = corr(X);
 G_corr(tril(true(size(G_corr)), -1)) = NaN;
 
 figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
@@ -97,29 +96,29 @@ set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
 title(sprintf('Pearson Correlation'))
 
 %% TIME-LAGGED COVARIANCE EIGENFUNCTIONS
-[U, Sig, V] = svd(X, 'econ'); % V columns are eigenvectors of X'X
-
-figure, tiledlayout(4, 1, 'TileSpacing','compact','Padding','compact');
-for r = 1:4
-    time_mode = V(:, r);
-    nexttile(r), plot(lags, time_mode); xlabel('\tau'); title(sprintf('Temporal mode %d', r)); grid on;
+% Dot product
+[~, ~, V_raw] = svd(X, 'econ');
+figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
+for r = 1:3
+    nexttile(r), plot(lags, V_raw(:,r));
+    grid on; xlabel('\tau'); title(sprintf('Raw mode %d', r));
 end
 
-diag(Sig).^2 ./ sum(diag(Sig).^2) % Energy captured
+% Cosine similarity
+[~, ~, V_cos] = svd(X_cos, 'econ');
+figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
+for r = 1:3
+    nexttile(r), plot(lags, V_cos(:,r));
+    grid on; xlabel('\tau'); title(sprintf('Cosine mode %d', r));
+end
 
-%% SINGLE ROWS
-% figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-% clc = nan(length(lags_full),length(lags_full),numel(n));
-% for i = 1:n
-%     mask = false(size(A)); mask(:, i) = true;
-%     clc(:,:,i) = crosslagcov(Sigma_th_full, mask);
-%     nexttile(1), imagesc(mask);
-%     nexttile(2), imagesc(lags_full, lags_full, clc(:,:,i))
-%     colorbar, colormap(magma)
-%     drawnow, pause(0.2)
-% end
-% mask = find(triu(ones(length(lags_full)), 0));
-% figure, imagesc(crosslagcov(clc, mask)), colorbar, colormap(magma)
+% Pearson correlation
+[~, ~, V_corr] = svd(X_corr, 'econ');
+figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
+for r = 1:3
+    nexttile(r); plot(lags, V_corr(:,r));
+    grid on; xlabel('\tau'); title(sprintf('Corr mode %d', r));
+end
 
 %% FUNCTIONS
 function S = buildS(n, topology)
