@@ -1,9 +1,10 @@
 clear; clc; %close all
 rng(42);
 
-n = 2; I = eye(n);
-Sigma_w = I;
-A = [-.02, -.1; .1, -.2];
+n = 2;
+% A = diag([-1 -5]);
+A = [-1 -1; 1 -1];
+Sigma_w = eye(n);
 Sigma = lyap(A, Sigma_w);
 S = 0.5 * (A * Sigma - Sigma * (A.'));
 
@@ -27,8 +28,8 @@ S = 0.5 * (A * Sigma - Sigma * (A.'));
 % showtop(S);
 
 % TIME-LAGGED AUTO/CROSS-COVARIANCE & CORRELATION FUNCTIONS
-maxLag = 10000; % Number of lags to evaluate (excluding zero lag)
-delta_tau = 0.01;
+maxLag = 450; % Number of lags to evaluate (excluding zero lag)
+delta_tau = 0.05;
 lags = (0:maxLag) * delta_tau;
 
 % Theoretical covariance
@@ -44,67 +45,47 @@ stds_th = sqrt(diag(Sigma));
 normMat_th = stds_th * stds_th.';
 Corr_th = Cov_th ./ normMat_th;
 
-figure;
-if n > 4, npl = 5; else, npl = n; end
-for i = 1:npl
-    for j = 1:npl
-        subplot(npl, npl, (i - 1) * npl + j);
-        plot(lags, squeeze(Corr_th(i, j, :)), 'b-');
-        title(sprintf('\\Sigma_{%d%d}(\\tau)', i, j));
-        xlabel('\tau'); grid on;
-    end
-end
-sgtitle('Auto/Cross-Covariance Functions');
-
 % TODO: Select single node lead or lag profile.
 
-X = reshape(Corr_th, [], size(Corr_th,3));
+% mask2D = eye(n) > 0;
+% mask3D = repmat(mask2D, 1, 1, size(Corr_th,3));
+% X = Corr_th(mask3D);
+X = squeeze(Corr_th(2, :, :)); % Single-node lag profile
+% X = squeeze(Corr_th(:, 1, :)); % Single-node lead profile
+X = reshape(X, [], size(Corr_th,3));
 
-%% CROSS-LAG COVARIANCE
-% Raw Gram across lags (no centering, no scaling)
-G_raw = X' * X / (size(X, 1) -1); % m x m
+% TODO: Avoid division by 0 with eps.
+
+%% CROSS-LAG COVARIANCE (DOT PRODUCT)
+G_raw = X' * X; %/ (size(X, 1) - 1);
 G_raw(tril(true(size(G_raw)), -1)) = NaN;
 
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, stackedplot(lags, X.');
+title('Auto/Cross-Covariance Functions'), xlabel('\tau')
+nexttile, h = imagesc(lags, lags, G_raw);
+axis square; colormap(magma); colorbar, %clim([-1 1]); % clim(clims)
+xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(G_raw)); % ylabel('\tau_2');
+set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
+title(sprintf('Dot Product'))
+
+%% CROSS-LAG COVARIANCE (COSINE SIMILARITY)
 % Cosine similarity across lags (normalize each column by its L2 norm)
 X_cos = X ./ vecnorm(X, 2, 1);
-G_cos = X_cos' * X_cos;
+G_cos = X_cos' * X_cos; %/ (size(X, 1) - 1);
 % D = pdist2(X', X', 'cosine'); % pairwise cosine distance
 % G_cos = 1 - D; % convert distance to similarity
 G_cos(tril(true(size(G_cos)), -1)) = NaN;
 
-% Pearson correlation across lags (demean columns then normalize)
-X_corr = (X - mean(X, 1)) ./ std(X, 0, 1);
-G_corr = (X_corr' * X_corr) / (size(X, 1) - 1);
-% G_corr = corr(X);
-G_corr(tril(true(size(G_corr)), -1)) = NaN;
-
-figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');
-nexttile, h = imagesc(lags, lags, G_raw); % G_raw
-axis square; clim([-1 1]); colorbar; colormap(magma);
-xlabel('Lag \tau_1'); ylabel('Lag \tau_2'); set(h, 'AlphaData', ~isnan(G_raw));
-set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
-title(sprintf('Dot Product'))
-nexttile, h = imagesc(G_cos); % G_cos
-axis square; clim([-1 1]); colorbar; colormap(magma);
-xlabel('Lag \tau_1'); ylabel('Lag \tau_2'); set(h, 'AlphaData', ~isnan(G_cos));
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, stackedplot(lags, X_cos.');
+title('L2-Normalized Auto/Cross-Covariance Functions'), xlabel('\tau')
+nexttile, h = imagesc(lags, lags, G_cos);
+axis square; colormap(magma); colorbar, clim([-1 1]); % clim(clims)
+xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(G_cos)); ylabel('\tau_2');
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
 title(sprintf('Cosine Similarity'))
-nexttile, h = imagesc(G_corr); % G_cos
-axis square; clim([-1 1]); colorbar; colormap(magma);
-xlabel('Lag \tau_1'); ylabel('Lag \tau_2'); set(h, 'AlphaData', ~isnan(G_corr));
-set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
-title(sprintf('Pearson Correlation'))
 
-%% TIME-LAGGED COVARIANCE EIGENFUNCTIONS
-% Dot product
-[~, ~, V_raw] = svd(X, 'econ');
-figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
-for r = 1:3
-    nexttile(r), plot(lags, V_raw(:,r));
-    grid on; xlabel('\tau'); title(sprintf('Raw mode %d', r));
-end
-
-% Cosine similarity
 [~, ~, V_cos] = svd(X_cos, 'econ');
 figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
 for r = 1:3
@@ -112,13 +93,31 @@ for r = 1:3
     grid on; xlabel('\tau'); title(sprintf('Cosine mode %d', r));
 end
 
-% Pearson correlation
+%% CROSS-LAG COVARIANCE (PEARSON CORRELATION)
+% Pearson correlation across lags (demean columns then normalize)
+X_corr = (X - mean(X, 1)) ./ std(X, 0, 1);
+G_corr = (X_corr' * X_corr); %/ (size(X, 1) - 1);
+% G_corr = corr(X);
+G_corr(tril(true(size(G_corr)), -1)) = NaN;
+
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, stackedplot(lags, X_corr.');
+title('Standardized Auto/Cross-Covariance Functions'), xlabel('\tau')
+nexttile, h = imagesc(lags, lags, G_corr);
+axis square; colormap(magma); colorbar; clim([-1 1]); % clim(clims) 
+xlabel('\tau_1'); ylabel('\tau_2'); set(h, 'AlphaData', ~isnan(G_corr));
+set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
+title(sprintf('Pearson Correlation'))
+
 [~, ~, V_corr] = svd(X_corr, 'econ');
 figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
 for r = 1:3
     nexttile(r); plot(lags, V_corr(:,r));
     grid on; xlabel('\tau'); title(sprintf('Corr mode %d', r));
 end
+
+% clims = [ min([min(G_cos(:)), min(G_corr(:))]), ...
+%           max([max(G_cos(:)), max(G_corr(:))]) ];
 
 %% FUNCTIONS
 function S = buildS(n, topology)
@@ -153,20 +152,4 @@ function showtop(S)
     G = digraph(S);
     figure; h = plot(G, 'Layout','circle', 'EdgeLabel',G.Edges.Weight);
     h.LineWidth = abs(G.Edges.Weight)/max(abs(G.Edges.Weight));
-end
-
-function C = crosslag_corr(matrixvec, mask)
-%CROSSLAG_CORR Construct cross-lag covariance matrix (CLC) Pearson correaltion
-%   matrixvec : series of matrices whose CLC to calculate
-%   mask      : mask for the matrices
-    vecs = reshape(matrixvec, [], size(matrixvec,3)); % vectorize each matrix
-    if nargin >= 2 && ~isempty(mask), vecs = vecs(mask(:), :); end
-    C = corr(vecs);
-end
-
-function C = crosslag_cos(matrixvec, mask)
-%CROSSLAG_COS cosine similarity
-    vecs = reshape(matrixvec, [], size(matrixvec,3));
-    if nargin >= 2 && ~isempty(mask), vecs = vecs(mask(:), :); end
-    C = (vecs' * vecs) ./ (sqrt(sum(vecs.^2,1))' * sqrt(sum(vecs.^2,1)));
 end
