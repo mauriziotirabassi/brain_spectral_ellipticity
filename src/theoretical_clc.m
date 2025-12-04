@@ -1,12 +1,13 @@
 clear; clc; %close all
 rng(42);
 
-n = 2;
-% A = diag([-1 -5]);
-A = [-1 -1; 1 -1];
+n = 3;
+% A = diag([-1 -2]);
+% A = [-1 -1; 1 -2.5]; % Bulging
+% A = [-1 1; -1 -3];
 Sigma_w = eye(n);
-Sigma = lyap(A, Sigma_w);
-S = 0.5 * (A * Sigma - Sigma * (A.'));
+% Sigma = lyap(A, Sigma_w);
+% S = 0.5 * (A * Sigma - Sigma * (A.'));
 
 % Topology
 % topology = 'Chain'; S = buildS(n, topology); % showtop(S)
@@ -16,7 +17,10 @@ S = 0.5 * (A * Sigma - Sigma * (A.'));
 
 % Dynamics
 % Sigma = I;
-% A = (-0.5 * Sigma_w + S) / Sigma;
+Sigma = diag([1 1 1]);
+S = [0 1 -3; -1 0 -1; 3 1 0];
+% S = zeros(n);
+A = (-0.5 * Sigma_w + S) / Sigma;
 
 % % Define A
 % topology = 'Random';
@@ -48,15 +52,15 @@ Corr_th = Cov_th ./ normMat_th;
 % TODO: Select single node lead or lag profile.
 
 % mask2D = eye(n) > 0;
-% mask3D = repmat(mask2D, 1, 1, size(Corr_th,3));
+% mask3D = repmat(mask2D, 1, 1, size(Corr_th, 3));
 % X = Corr_th(mask3D);
-X = squeeze(Corr_th(2, :, :)); % Single-node lag profile
+% X = squeeze(Corr_th(1, :, :)); % Single-node lag profile
 % X = squeeze(Corr_th(:, 1, :)); % Single-node lead profile
-X = reshape(X, [], size(Corr_th,3));
+X = reshape(Corr_th, [], size(Corr_th, 3));
 
 % TODO: Avoid division by 0 with eps.
 
-%% CROSS-LAG COVARIANCE (DOT PRODUCT)
+% CROSS-LAG COVARIANCE (DOT PRODUCT)
 G_raw = X' * X; %/ (size(X, 1) - 1);
 G_raw(tril(true(size(G_raw)), -1)) = NaN;
 
@@ -69,7 +73,7 @@ xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(G_raw)); % ylabel('\tau_2');
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
 title(sprintf('Dot Product'))
 
-%% CROSS-LAG COVARIANCE (COSINE SIMILARITY)
+% CROSS-LAG COVARIANCE (COSINE SIMILARITY)
 % Cosine similarity across lags (normalize each column by its L2 norm)
 X_cos = X ./ vecnorm(X, 2, 1);
 G_cos = X_cos' * X_cos; %/ (size(X, 1) - 1);
@@ -81,7 +85,7 @@ figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
 nexttile, stackedplot(lags, X_cos.');
 title('L2-Normalized Auto/Cross-Covariance Functions'), xlabel('\tau')
 nexttile, h = imagesc(lags, lags, G_cos);
-axis square; colormap(magma); colorbar, clim([-1 1]); % clim(clims)
+axis square; colormap(magma); colorbar, %clim([-1 1]); % clim(clims)
 xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(G_cos)); ylabel('\tau_2');
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
 title(sprintf('Cosine Similarity'))
