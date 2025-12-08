@@ -23,11 +23,11 @@ Sigma = lyap(A, Sigma_w); % zero-lag covariance
 S = (A * Sigma - Sigma * (A.')); % dC-Cov
 hr = subj.h; % haemodynamic response
 
-% Isolating inactive pairs (wrong)
-pct = 99;
-upper_percentile = prctile(S(:), pct);
-lower_percentile = prctile(S(:), 100 - pct);
-mask = (S >= upper_percentile) | (S <= lower_percentile);
+% % Isolating inactive pairs (wrong)
+% pct = 99;
+% upper_percentile = prctile(S(:), pct);
+% lower_percentile = prctile(S(:), 100 - pct);
+% mask = (S >= upper_percentile) | (S <= lower_percentile);
 
 % Network topology
 S_plot = S; S_plot(~mask) = 0; % showtop(S_plot);
@@ -74,6 +74,8 @@ stds_th = sqrt(diag(Sigma));
 normMat_th = stds_th * stds_th.';
 Corr_th = Cov_th ./ normMat_th; % Pearson correlation
 
+x = bold;
+
 % Simulated covariance
 Cov_sim0 = (x' * x) / size(x,1);
 stds_emp = sqrt(diag(Cov_sim0));
@@ -81,9 +83,9 @@ normMat_emp = stds_emp * stds_emp';
 T = size(x, 1);
 Cov_sim = nan(n,n,numel(lags));
 for k = 0:maxLag
-    X = x(1:end-k, :);
+    X_th = x(1:end-k, :);
     X_lag = x(1+k:end, :);
-    Cov_sim(:,:,k+1) = (X_lag' * X) / (T - k);
+    Cov_sim(:,:,k+1) = (X_lag' * X_th) / (T - k);
 end
 Corr_sim = Cov_sim ./ normMat_emp;
 
@@ -99,6 +101,42 @@ Corr_sim = Cov_sim ./ normMat_emp;
 % Sigma_emp_neg = permute(Sigma_emp_neg, [2 1 3]);
 % Sigma_emp_full = cat(3, Sigma_emp_neg, Sigma_emp);
 
+X_th = reshape(Corr_th, [], size(Cov_th, 3));
+X_sim = reshape(Corr_sim, [], size(Cov_sim, 3));
+
+% % TLC FUNCTIONS IN LAG SPACE
+% figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+% tau1 = 1; tau2 = 2; tau3 = 3;
+% nexttile, plot3(X(:, tau1), X(:, tau2), X(:,tau3), '.'); grid on; 
+% xlabel(sprintf('\\tau_%d', tau1)); ylabel(sprintf('\\tau_%d', tau2)); zlabel(sprintf('\\tau_%d', tau3)); 
+% [coeff, score, latent, ~, ~, mu] = pca(X);
+% nexttile, plot3(score(:,1), score(:,2), score(:,3), '.'); grid on; hold on;
+% xlabel('PC_1'); ylabel('PC_2'); zlabel('PC_3'); 
+% pc1_line = [-3 3]*sqrt(latent(1)); % extend 3 std deviations in both directions
+% line_points = mu + pc1_line'*coeff(:,1)'; % compute start/end in original space
+% plot3(line_points(:,1), line_points(:,2), line_points(:,3), 'r--', 'LineWidth', 2);
+
+% CROSS-LAG COVARIANCE (COSINE SIMILARITY)
+Xth_cos = X_th ./ vecnorm(X_th, 2, 1); % Theoretical
+Gth_cos = Xth_cos' * Xth_cos;
+Gth_cos(tril(true(size(Gth_cos)), -1)) = NaN;
+Xsim_cos = X_sim ./ vecnorm(X_sim, 2, 1); % Simulated
+Gsim_cos = Xsim_cos' * Xsim_cos;
+Gsim_cos(tril(true(size(Gsim_cos)), -1)) = NaN;
+
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, h = imagesc(lags, lags, Gth_cos); % Theoretical
+axis square; colormap(magma); colorbar, %clim([-1 1]); % clim(clims)
+xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(Gth_cos)); ylabel('\tau_2');
+set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
+title(sprintf('Theoretical Cosine Similarity'))
+nexttile, h = imagesc(lags, lags, Gsim_cos); % Simulated
+axis square; colormap(magma); colorbar, %clim([-1 1]); % clim(clims)
+xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(Gsim_cos)); ylabel('\tau_2');
+set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
+title(sprintf('Simulated Cosine Similarity'))
+
+%%
 % CROSS-LAG CORRELATION (CLC)
 % triuIdx = find(triu(ones(n), 1));
 % triuIdx = find(triu(mask, 1)); % Isolate active pairs
@@ -135,7 +173,7 @@ title(sprintf('Simulated CLCos Subject %d', iSub));
 %     drawnow, pause(0.2)
 % end
 
-%% META CLC
+% META CLC
 % figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
 % mask = find(triu(ones(length(lags)), 0));
 % nexttile, imagesc(crosslag_corr(clc_th, mask)), colorbar, colormap(magma)

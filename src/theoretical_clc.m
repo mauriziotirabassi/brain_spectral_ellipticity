@@ -1,7 +1,7 @@
 clear; clc; %close all
 rng(42);
 
-n = 3;
+n = 2;
 % A = diag([-1 -2]);
 % A = [-1 -1; 1 -2.5]; % Bulging
 % A = [-1 1; -1 -3];
@@ -16,10 +16,18 @@ Sigma_w = eye(n);
 % S = zeros(n);
 
 % Dynamics
-% Sigma = I;
-Sigma = diag([1 1 1]);
-S = [0 1 -3; -1 0 -1; 3 1 0];
-% S = zeros(n);
+% Sigma = I; % scalar
+Sigma = diag([1 200]); % general diagonal
+% Sigma = [2 0.6 0.3; 0.6 1.5 0.5; 0.3 0.5 1.8]; % anisotropic
+
+% Sigma = diag([0.5, 1]);   S = [0 0.1; -0.1 0]; % overdamped
+% Sigma = diag([0.5, 1]);   S = [0 1; -1 0]; % oscillatory
+
+% S = zeros(n); % pure dissipation
+S = 10 * [0 1; -1 0]; % 2D
+% S = 1.2 * [0 1 0; -1 0 0; 0 0 0]; % 3D
+% S = [0 -1  2 -3; 1  0 -4  5; -2 4  0 -6; 3 -5 6  0]; % 4D
+% S = [0 1 2 3 4; -1 0 5 6 7; -2 -5 0 8 9; -3 -6 -8 0 10; -4 -7 -9 -10 0]; % 5D
 A = (-0.5 * Sigma_w + S) / Sigma;
 
 % % Define A
@@ -56,7 +64,7 @@ Corr_th = Cov_th ./ normMat_th;
 % X = Corr_th(mask3D);
 % X = squeeze(Corr_th(1, :, :)); % Single-node lag profile
 % X = squeeze(Corr_th(:, 1, :)); % Single-node lead profile
-X = reshape(Corr_th, [], size(Corr_th, 3));
+X = reshape(Cov_th, [], size(Cov_th, 3));
 
 % TODO: Avoid division by 0 with eps.
 
@@ -100,7 +108,7 @@ end
 %% CROSS-LAG COVARIANCE (PEARSON CORRELATION)
 % Pearson correlation across lags (demean columns then normalize)
 X_corr = (X - mean(X, 1)) ./ std(X, 0, 1);
-G_corr = (X_corr' * X_corr); %/ (size(X, 1) - 1);
+G_corr = (X_corr' * X_corr) / (size(X, 1) - 1);
 % G_corr = corr(X);
 G_corr(tril(true(size(G_corr)), -1)) = NaN;
 
@@ -108,7 +116,7 @@ figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
 nexttile, stackedplot(lags, X_corr.');
 title('Standardized Auto/Cross-Covariance Functions'), xlabel('\tau')
 nexttile, h = imagesc(lags, lags, G_corr);
-axis square; colormap(magma); colorbar; clim([-1 1]); % clim(clims) 
+axis square; colormap(magma); colorbar;% clim([-1 1]); % clim(clims) 
 xlabel('\tau_1'); ylabel('\tau_2'); set(h, 'AlphaData', ~isnan(G_corr));
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
 title(sprintf('Pearson Correlation'))
