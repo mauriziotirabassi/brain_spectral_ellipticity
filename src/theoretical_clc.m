@@ -17,18 +17,44 @@ Sigma_w = eye(n);
 
 % Dynamics
 % Sigma = I; % scalar
-Sigma = diag([1 200]); % general diagonal
+Sigma = diag([1 40]); % general diagonal
 % Sigma = [2 0.6 0.3; 0.6 1.5 0.5; 0.3 0.5 1.8]; % anisotropic
 
 % Sigma = diag([0.5, 1]);   S = [0 0.1; -0.1 0]; % overdamped
 % Sigma = diag([0.5, 1]);   S = [0 1; -1 0]; % oscillatory
 
 % S = zeros(n); % pure dissipation
-S = 10 * [0 1; -1 0]; % 2D
-% S = 1.2 * [0 1 0; -1 0 0; 0 0 0]; % 3D
-% S = [0 -1  2 -3; 1  0 -4  5; -2 4  0 -6; 3 -5 6  0]; % 4D
-% S = [0 1 2 3 4; -1 0 5 6 7; -2 -5 0 8 9; -3 -6 -8 0 10; -4 -7 -9 -10 0]; % 5D
+omega = 100;
+S = omega * [0 1; -1 0]; % 2D
+% S = .8 * [0 -1 0; 1 0 0; 0 0 0]; % 3D
+% S = 1 * [0 -1  .2 -.3; 1  0 -.4  .5; -.2 .4  0 -.6; .3 -.5 .6  0]; % 4D
+% S = 10 * [0 .1 .2 .3 .4; -.1 0 .5 .2 .7; -.2 -.5 0 0 0; -.3 -.2 0 0 .1; -.4 -.7 0 -.1 0]; % 5D
 A = (-0.5 * Sigma_w + S) / Sigma;
+
+% 2D KAPPA
+mu = trace(A)/2;
+Delta = trace(A)^2 - 4*det(A);
+gamma = sqrt(abs(Delta))/2;
+J = (A - mu*eye(2)) / gamma;
+kappa = trace(J'*J);
+disp(['Delta = ', num2str(Delta)]);
+disp(['Kappa = ', num2str(kappa)]);
+
+% DYNAMIC ANISOTROPY COEFFICIENT (DAC) SPECTRUM
+% [~, T] = schur(A, 'real');
+% kappa_spec = [];
+% i = 1;
+% while i <= n
+%     if i < n && abs(T(i + 1, i)) ~= 0 % 2x2 oscillatory Schur block
+%         b = T(i, i + 1); c = T(i + 1, i);
+%         kappa = (b^2 + c^2) / abs(b * c);
+%         kappa_spec(end + 1) = kappa; %#ok<SAGROW>
+%         i = i + 2;
+%     else, i = i + 1;
+%     end
+% end
+% disp('Kappa spectrum:');
+% disp(kappa_spec(:));
 
 % % Define A
 % topology = 'Random';
@@ -40,9 +66,8 @@ A = (-0.5 * Sigma_w + S) / Sigma;
 % showtop(S);
 
 % TIME-LAGGED AUTO/CROSS-COVARIANCE & CORRELATION FUNCTIONS
-maxLag = 450; % Number of lags to evaluate (excluding zero lag)
-delta_tau = 0.05;
-lags = (0:maxLag) * delta_tau;
+lastLag = .5; numLags = 30000;
+lags = linspace(0, lastLag, numLags + 1);
 
 % Theoretical covariance
 Sigma_tau = @(tau) expm(A * tau) * Sigma;
@@ -64,22 +89,22 @@ Corr_th = Cov_th ./ normMat_th;
 % X = Corr_th(mask3D);
 % X = squeeze(Corr_th(1, :, :)); % Single-node lag profile
 % X = squeeze(Corr_th(:, 1, :)); % Single-node lead profile
-X = reshape(Cov_th, [], size(Cov_th, 3));
+X = reshape(Corr_th, [], size(Corr_th, 3));
 
 % TODO: Avoid division by 0 with eps.
 
 % CROSS-LAG COVARIANCE (DOT PRODUCT)
-G_raw = X' * X; %/ (size(X, 1) - 1);
-G_raw(tril(true(size(G_raw)), -1)) = NaN;
-
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, stackedplot(lags, X.');
-title('Auto/Cross-Covariance Functions'), xlabel('\tau')
-nexttile, h = imagesc(lags, lags, G_raw);
-axis square; colormap(magma); colorbar, %clim([-1 1]); % clim(clims)
-xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(G_raw)); % ylabel('\tau_2');
-set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
-title(sprintf('Dot Product'))
+% G_raw = X' * X; %/ (size(X, 1) - 1);
+% G_raw(tril(true(size(G_raw)), -1)) = NaN;
+% 
+% figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+% nexttile, stackedplot(lags, X.');
+% title('Auto/Cross-Covariance Functions'), xlabel('\tau')
+% nexttile, h = imagesc(lags, lags, G_raw);
+% axis square; colormap(magma); colorbar, %clim([-1 1]); % clim(clims)
+% xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(G_raw)); % ylabel('\tau_2');
+% set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
+% title(sprintf('Dot Product'))
 
 % CROSS-LAG COVARIANCE (COSINE SIMILARITY)
 % Cosine similarity across lags (normalize each column by its L2 norm)
@@ -98,12 +123,41 @@ xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(G_cos)); ylabel('\tau_2');
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
 title(sprintf('Cosine Similarity'))
 
-[~, ~, V_cos] = svd(X_cos, 'econ');
-figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
-for r = 1:3
-    nexttile(r), plot(lags, V_cos(:,r));
-    grid on; xlabel('\tau'); title(sprintf('Cosine mode %d', r));
+% [U_cos, ~, V_cos] = svd(X_cos, 'econ');
+% figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
+% for r = 1:3
+%     nexttile(r), plot(lags, V_cos(:,r));
+%     grid on; xlabel('\tau'); title(sprintf('Cosine mode %d', r));
+% end
+
+% KAPPA
+tol = 1e-12;
+if Delta < -tol       % oscillatory → ellipse
+    C = cos(gamma * lags);
+    S = sin(gamma * lags);
+elseif Delta > tol    % overdamped → hyperbola
+    C = cosh(gamma * lags);
+    S = sinh(gamma * lags);
+else                  % critical → line
+    C = ones(size(lags));
+    S = tau;
 end
+
+% Lag vector
+u1 = sqrt(2) * C;
+u2 = sqrt(kappa) * S;
+
+% Plot
+figure;
+plot(u1, u2,'b-','LineWidth',1); hold on
+plot(u1(1), u2(1),'go','MarkerFaceColor','g'); % start
+plot(u1(end), u2(end),'ro','MarkerFaceColor','r'); % end
+axis equal; grid on;
+xlabel('$u_1 = \sqrt2\,C(\gamma\tau)$', 'Interpreter', 'latex');
+ylabel('$u_2 = \sqrt\kappa\,S(\gamma\tau)$', 'Interpreter', 'latex');
+title(['$\omega = ', num2str(omega), ...
+       ',\ \Delta = ', num2str(Delta), ...
+       ',\ \kappa = ', num2str(kappa), '$'], 'Interpreter', 'latex');
 
 %% CROSS-LAG COVARIANCE (PEARSON CORRELATION)
 % Pearson correlation across lags (demean columns then normalize)
