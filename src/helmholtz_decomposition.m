@@ -28,9 +28,26 @@ nexttile, plotvec(dC_Cov * X, X, 'g'), title('$S$', 'Interpreter', 'latex');
 % A HELMHOLTZ DECOMPOSITION
 A_diss = -0.5 * Sigma_w;
 A_rot = dC_Cov / Sigma;
+[U,D] = eig(Sigma);
+radii = sqrt(diag(D));
 
 figure, tiledlayout(1,3,'TileSpacing','compact','Padding','compact')
 nexttile, plotvec(A * X, X, 'r'), title('$A$ ', 'Interpreter', 'latex')
+hold on
+
+% Covariance ellipse
+scale = .4;
+theta = linspace(0,2*pi,100);
+ellipse = U * (radii .* [cos(theta); sin(theta)]) * scale;
+plot(ellipse(1,:), ellipse(2,:), 'g-', 'LineWidth', 1);
+
+% Scaled eigenvectors
+for i = 1:2
+    vec = U(:,i) * radii(i) * scale;   % scale eigenvector by corresponding sqrt(eigenvalue)
+    h = quiver(0, 0, vec(1), vec(2), 0, 'g-', 'LineWidth', 1, 'MaxHeadSize', 0.5);
+end
+legend(h, '$\Sigma$ Eigvecs', 'interpreter', 'latex')
+
 nexttile, plotvec(A_diss * X, X, 'b'), title('Pure Dissipation $-\frac{1}{2}\Sigma_w\Sigma^{-1}$', 'Interpreter', 'latex')
 nexttile, plotvec(A_rot * X, X, 'g'), title('Rotational Drift $S\Sigma^{-1}$', 'Interpreter', 'latex');
 
@@ -45,6 +62,7 @@ nexttile, plotvec(A_iso * X, X, 'r'), title('Isotropic Dissipation $\mu I$ ', 'I
 nexttile, plotvec(A_diff * X, X, 'b'), title('Differential Dissipation', 'Interpreter', 'latex')
 nexttile, plotvec(A_rot * X, X, 'g'), title('Rotational Drift $S\Sigma^{-1}$', 'Interpreter', 'latex');
 
+%%
 % Sigma RESCALES A IN EIGENSPACE
 % This is the same thing as just plotting A vs ASigma
 [U,D] = eig(Sigma);

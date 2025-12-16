@@ -104,17 +104,17 @@ Corr_sim = Cov_sim ./ normMat_emp;
 X_th = reshape(Corr_th, [], size(Cov_th, 3));
 X_sim = reshape(Corr_sim, [], size(Cov_sim, 3));
 
-% % TLC FUNCTIONS IN LAG SPACE
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-tau1 = 1; tau2 = 2; tau3 = 3;
-nexttile, plot3(X_th(:, tau1), X_th(:, tau2), X_th(:,tau3), '.'); grid on; 
-xlabel(sprintf('\\tau_%d', tau1)); ylabel(sprintf('\\tau_%d', tau2)); zlabel(sprintf('\\tau_%d', tau3)); 
-[coeff, score, latent, ~, ~, mu] = pca(X_th);
-nexttile, plot3(score(:,1), score(:,2), score(:,3), '.'); grid on; hold on;
-xlabel('PC_1'); ylabel('PC_2'); zlabel('PC_3'); 
-pc1_line = [-3 3]*sqrt(latent(1)); % extend 3 std deviations in both directions
-line_points = mu + pc1_line'*coeff(:,1)'; % compute start/end in original space
-plot3(line_points(:,1), line_points(:,2), line_points(:,3), 'r--', 'LineWidth', 2);
+% TLC FUNCTIONS IN LAG SPACE
+% figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+% tau1 = 1; tau2 = 2; tau3 = 3;
+% nexttile, plot3(X_th(:, tau1), X_th(:, tau2), X_th(:,tau3), '.'); grid on; 
+% xlabel(sprintf('\\tau_%d', tau1)); ylabel(sprintf('\\tau_%d', tau2)); zlabel(sprintf('\\tau_%d', tau3)); 
+% [coeff, score, latent, ~, ~, mu] = pca(X_th);
+% nexttile, plot3(score(:,1), score(:,2), score(:,3), '.'); grid on; hold on;
+% xlabel('PC_1'); ylabel('PC_2'); zlabel('PC_3'); 
+% pc1_line = [-3 3]*sqrt(latent(1)); % extend 3 std deviations in both directions
+% line_points = mu + pc1_line'*coeff(:,1)'; % compute start/end in original space
+% plot3(line_points(:,1), line_points(:,2), line_points(:,3), 'r--', 'LineWidth', 2);
 
 % CROSS-LAG COVARIANCE (COSINE SIMILARITY)
 Xth_cos = X_th ./ vecnorm(X_th, 2, 1); % Theoretical

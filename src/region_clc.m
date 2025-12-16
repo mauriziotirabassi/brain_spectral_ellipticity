@@ -25,7 +25,7 @@ T = readtable(rname);
 netLabels = T.NETWORK;
 [uniqueNets, ~, ic] = unique(netLabels);
 
-netId = 14;
+netId = 7;
 netName = uniqueNets{netId};
 idx = find(ic == netId); % rows for this network
 m = numel(idx); % number of nodes in this net
@@ -90,6 +90,13 @@ Corr_sim = Corr_sim(idx, idx, :);
 X_th = reshape(Corr_th, [], size(Cov_th, 3));
 X_sim = reshape(Corr_sim, [], size(Cov_sim, 3));
 
+%%
+A_reg = A(idx, idx);
+
+% can I make this assumption? decoupling anetwork just by ignoring other
+% nodes?
+
+%%
 % CROSS-LAG COVARIANCE (COSINE SIMILARITY)
 Xth_cos = X_th ./ vecnorm(X_th, 2, 1); % Theoretical
 Gth_cos = Xth_cos' * Xth_cos;
