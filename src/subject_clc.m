@@ -14,7 +14,7 @@ C = load(fullfile(structFile)).full_connectome_no_symm;
 D = load(distFile,'mtx_euc_dis').mtx_euc_dis;
 
 % Subject data
-iSub = 5; % subject number
+iSub = 4; % subject number
 subj = load(fullfile(outDir,files{iSub}));
 A = subj.A; % effective connectivity
 n = size(A, 1); I = eye(n);
@@ -157,6 +157,16 @@ title(sprintf('Theoretical CLCos Subject %d', iSub));
 nexttile, imagesc(lags, lags, crosslag_cos(Corr_sim));
 axis square; colorbar; colormap(magma); xlabel('Lag \tau_1'); ylabel('Lag \tau_2');
 title(sprintf('Simulated CLCos Subject %d', iSub));
+
+%%
+figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
+nexttile, stackedplot(lags, Xth_cos.');
+title('L2-Normalized Auto/Cross-Covariance Functions'), xlabel('\tau')
+nexttile, h = imagesc(lags, lags, Gth_cos);
+axis square; colormap(magma); colorbar, %clim([-1 1]); % clim(clims)
+xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(Gth_cos)); ylabel('\tau_2');
+set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
+title(sprintf('Cosine Similarity'))
 
 %% SINGLE NODE CLC
 % figure, tiledlayout(1, 3, 'TileSpacing','compact','Padding','compact');

@@ -7,18 +7,23 @@ n = 2; Sigma_w = eye(n);
 Sigma = diag([1 40]); % diagonal
 % Sigma = [2 0.6 0.3; 0.6 1.5 0.5; 0.3 0.5 1.8]; % full
 
-omega = 2;
+omega = 1.8;
 S = omega * [0 1; -1 0]; % 2D
 % S = omega * [0 -1 0; 1 0 0; 0 0 0]; % 3D
 % S = omega * [0 -1  .2 -.3; 1  0 -.4  .5; -.2 .4  0 -.6; .3 -.5 .6  0]; % 4D
-% S = omega * [0 .1 .2 .3 .4; -.1 0 .5 .2 .7; -.2 -.5 0 0 0; -.3 -.2 0 0 .1; -.4 -.7 0 -.1 0]; % 5D
+% S = omega * [0 1 0 0 0; -1 0 0 0 0; 0 0 0 1 0; 0 0 -1 0 0; 0 0 0 0 0]; % 5D
 
 A = (-0.5 * Sigma_w + S) / Sigma;
 
-% DYNAMIC ANISOTROPY INDEX (DAI)
-mu = trace(A) / 2; Delta = trace(A)^2 - 4 * det(A);
+[~, T] = schur(A, 'real');
+
+S_half = sqrtm(Sigma);             
+Atilde = inv(S_half) * A * S_half;
+
+% % DYNAMIC ANISOTROPY INDEX (DAI)
+mu = trace(Atilde) / 2; Delta = trace(Atilde)^2 - 4 * det(Atilde);
 gamma = sqrt(abs(Delta)) / 2;
-J = (A - mu * eye(2)) / gamma;
+J = (Atilde - mu * eye(2)) / gamma;
 kappa = trace(J' * J);
 disp(['Delta = ', num2str(Delta)]);
 disp(['Kappa = ', num2str(kappa)]);
@@ -40,9 +45,9 @@ disp(['Kappa = ', num2str(kappa)]);
 % disp(kappa_spec(:));
 
 % TIME-LAGGED AUTO/CROSS-COVARIANCE & CORRELATION FUNCTIONS
-lastLag = 50; numLags = 5000;
-% lags = linspace(0, lastLag, numLags + 1);
-lags = linspace(-lastLag, lastLag, numLags + 1);
+lastLag = 50; numLags = 500;
+lags = linspace(0, lastLag, numLags + 1);
+% lags = linspace(-lastLag, lastLag, numLags + 1);
 
 % Theoretical covariance
 Sigma_tau = @(tau) expm(A * tau) * Sigma;
@@ -79,6 +84,10 @@ title(sprintf('Cosine Similarity'))
 %     grid on; xlabel('\tau'); title(sprintf('Cosine mode %d', r));
 % end
 
+showtop(S);
+
+%%
+
 % LAG-VECTOR (SIMILARITY STRUCTURE)
 tol = 1e-12;
 if Delta < -tol % oscillatory → ellipse
@@ -100,6 +109,12 @@ plot(u1(end), u2(end), 'ro','MarkerFaceColor', 'r'); % end
 axis equal; grid on;
 xlabel('$u_1 = \sqrt2\,C(\gamma\tau)$', 'Interpreter', 'latex');
 ylabel('$u_2 = \sqrt\kappa\,S(\gamma\tau)$', 'Interpreter', 'latex');
-title(['$\omega = ', num2str(omega), ...
-       ',\ \Delta = ', num2str(Delta), ...
-       ',\ \kappa = ', num2str(kappa), '$'], 'Interpreter', 'latex');
+% title(['$\omega = ', num2str(omega), ...
+%        ',\ \Delta = ', num2str(Delta), ...
+%        ',\ \kappa = ', num2str(kappa), '$'], 'Interpreter', 'latex');
+
+function showtop(S)
+    G = digraph(S);
+    figure; h = plot(G, 'Layout','circle', 'EdgeLabel',G.Edges.Weight);
+    h.LineWidth = abs(G.Edges.Weight)/max(abs(G.Edges.Weight));
+end

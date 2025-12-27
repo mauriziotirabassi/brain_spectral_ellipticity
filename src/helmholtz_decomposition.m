@@ -11,9 +11,11 @@ ev = eig(A);
 fprintf('max real part = %.4g\n', max(real(ev)));
 
 % Grid for plotting vector field
-npts = 10;
+npts = 11;
 [x1, x2] = meshgrid(linspace(-1, 1, npts), linspace(-1, 1, npts));
 X = [x1(:)'; x2(:)'];
+
+%%
 
 % A\SIGMA HELMHOLTZ DECOMPOSITION
 ASigma = A * Sigma;
@@ -61,6 +63,65 @@ figure, tiledlayout(1,3,'TileSpacing','compact','Padding','compact')
 nexttile, plotvec(A_iso * X, X, 'r'), title('Isotropic Dissipation $\mu I$ ', 'Interpreter', 'latex')
 nexttile, plotvec(A_diff * X, X, 'b'), title('Differential Dissipation', 'Interpreter', 'latex')
 nexttile, plotvec(A_rot * X, X, 'g'), title('Rotational Drift $S\Sigma^{-1}$', 'Interpreter', 'latex');
+
+%% SCALAR–TRACELESS DECOMPOSITION
+S_half = sqrtm(Sigma);
+Atilde = inv(S_half) * A * S_half; 
+
+mu      = trace(Atilde)/2;
+gammaJ  = Atilde - mu*eye(n);    % = γ J̃
+% gamma   = sqrt(abs(det(gammaJ)));
+% Jtilde  = gammaJ / gamma;        % normalized deviatoric generator
+
+J_diss = diag(diag(gammaJ));    % Dissipative (Diagonal/Stretching)
+J_sol  = gammaJ - J_diss;       % Solenoidal (Off-diagonal/Rotation)
+
+f = figure('Color', 'w', 'Position', [100 100 1000 500]);
+t = tiledlayout(2, 4, 'TileSpacing', 'tight', 'Padding', 'compact');
+
+% Row 1
+nexttile(1); plotvec(A * X, X, 'k');
+title('$\tilde A$', 'Interpreter','latex', 'FontSize', 14);
+annotation('textbox', [0.3 0.746 0.05 0.05], 'String', '$=$', 'Interpreter', 'latex', 'EdgeColor', 'none', 'FontSize', 20, 'HorizontalAlignment', 'center');
+
+% Plot 2: Deviatoric (Remove x_2 label)
+nexttile(2, [1 2]); plotvec(gammaJ * X, X, 'r');
+title('Isochoric Flow $\gamma\tilde J$', 'Interpreter','latex', 'FontSize', 14);
+ylabel(''); 
+annotation('textbox', [0.68 0.746 0 0.05], 'String', '$+$', 'Interpreter', 'latex', 'EdgeColor', 'none', 'FontSize', 20, 'HorizontalAlignment', 'center');
+
+% Plot 3: Average Dissipation (Remove x_2 label)
+nexttile(4); plotvec(mu * eye(2) * X, X, 'b');
+title('Average Dissipation $\mu I$', 'Interpreter','latex', 'FontSize', 14);
+ylabel('');
+
+% Row 2
+nexttile(5); axis off;
+
+% Plot 4: Diff. Dissipation (Keep label)
+nexttile(6); plotvec(J_diss*X, X, 'm');
+title('Differential Dissipation', 'Interpreter','latex', 'FontSize', 12);
+annotation('textbox', [0.5 0.25 0.01 0.05], 'String', '$+$', 'Interpreter', 'latex', 'EdgeColor', 'none', 'FontSize', 20, 'HorizontalAlignment', 'center');
+
+% Plot 5: Solenoidal (Remove x_2 label)
+nexttile(7); plotvec(J_sol*X, X, 'g');
+title('Solenoidal Flow', 'Interpreter','latex', 'FontSize', 12);
+ylabel('');
+
+% Brace Overlay
+axes('Position', [0 0 1 1], 'Visible', 'off', 'XLim', [0 1], 'YLim', [0 1]);
+brace_width = 'oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo';
+text(0.5, 0.45, ['$\overbrace{\phantom{' brace_width '}}^{\phantom{a}}$'], 'Interpreter', 'latex', 'FontSize', 15, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+
+%% WHITNENING
+
+S_white = inv(Sigma^2) * dC_Cov * inv(Sigma^2);
+
+figure, tiledlayout(1,3,'TileSpacing','compact','Padding','compact')
+nexttile, plotvec(dC_Cov * X, X, 'r'), title('$S$ ', 'Interpreter', 'latex')
+nexttile, plotvec(A_rot * X, X, 'r'), title('$S\Sigma^{-1}$ ', 'Interpreter', 'latex')
+nexttile, plotvec(S_white * X, X, 'r'), title('$\Sigma^{-1/2}S\Sigma^{-1/2}$ ', 'Interpreter', 'latex')
+
 
 %%
 % Sigma RESCALES A IN EIGENSPACE
