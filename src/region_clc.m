@@ -10,7 +10,7 @@ d = dir(fullfile(outDir,'*.mat')); % list of subject‐model .mat files
 files = {d.name};
 
 % Subject data
-iSub = 5; % subject number
+iSub = 2; % subject number
 subj = load(fullfile(outDir,files{iSub}));
 A = subj.A; % effective connectivity
 n = size(A, 1); I = eye(n);
@@ -19,13 +19,31 @@ Sigma = lyap(A, Sigma_w); % zero-lag covariance
 S = (A * Sigma - Sigma * (A.')); % dC-Cov
 hr = subj.h; % haemodynamic response
 
+% % DYNAMIC ANISOTROPY INDEX (DAI) SPECTRUM
+[~, T] = schur(A, 'real');
+kappa_spec = [];
+i = 1;
+while i <= n
+    if i < n && abs(T(i + 1, i)) ~= 0 % 2x2 oscillatory Schur block
+        b = T(i, i + 1); c = T(i + 1, i);
+        kappa = (b^2 + c^2) / abs(b * c);
+        kappa_spec(end + 1) = kappa; %#ok<SAGROW>
+        i = i + 2;
+    else, i = i + 1;
+    end
+end
+% disp('Kappa spectrum:');
+% disp(kappa_spec(:));
+figure, histogram(kappa_spec, 10);
+title('$\kappa$ Spectrum', 'Interpreter', 'latex')
+
 % Unique networks & their indices
 rname = fullfile(dataDir, 'regions.xlsx');
-T = readtable(rname);
-netLabels = T.NETWORK;
+Tr = readtable(rname);
+netLabels = Tr.NETWORK;
 [uniqueNets, ~, ic] = unique(netLabels);
 
-netId = 7;
+netId = 5;
 netName = uniqueNets{netId};
 idx = find(ic == netId); % rows for this network
 m = numel(idx); % number of nodes in this net
@@ -73,12 +91,12 @@ x = bold;
 Cov_sim0 = (x' * x) / size(x,1);
 stds_emp = sqrt(diag(Cov_sim0));
 normMat_emp = stds_emp * stds_emp';
-T = size(x, 1);
+Tm = size(x, 1);
 Cov_sim = nan(n,n,numel(lags));
 for k = 0:maxLag
     X_th = x(1:end-k, :);
     X_lag = x(1+k:end, :);
-    Cov_sim(:,:,k+1) = (X_lag' * X_th) / (T - k);
+    Cov_sim(:,:,k+1) = (X_lag' * X_th) / (Tm - k);
 end
 Corr_sim = Cov_sim ./ normMat_emp;
 
@@ -90,13 +108,6 @@ Corr_sim = Corr_sim(idx, idx, :);
 X_th = reshape(Corr_th, [], size(Cov_th, 3));
 X_sim = reshape(Corr_sim, [], size(Cov_sim, 3));
 
-%%
-A_reg = A(idx, idx);
-
-% can I make this assumption? decoupling anetwork just by ignoring other
-% nodes?
-
-%%
 % CROSS-LAG COVARIANCE (COSINE SIMILARITY)
 Xth_cos = X_th ./ vecnorm(X_th, 2, 1); % Theoretical
 Gth_cos = Xth_cos' * Xth_cos;

@@ -2,7 +2,7 @@ clear; clc; close all;
 
 % --- 1. System Parameters ---
 Sigma_w = eye(2);
-Sigma   = diag([1, 100]); 
+Sigma   = diag([1, 10]); 
 d = diag(inv(Sigma));    
 sigma_w_scalar = 1;      
 alpha = (sigma_w_scalar .* d) / 2; 
@@ -11,7 +11,7 @@ alpha = (sigma_w_scalar .* d) / 2;
 w_crit = abs(alpha(1) - alpha(2)) / (2 * sqrt(d(1)*d(2)));
 
 % Define the 3 Test Cases
-omegas_cases = [0.2 * w_crit, w_crit, 2.5 * w_crit];
+omegas_cases = [0.2 * w_crit, w_crit, 1.6 * w_crit];
 titles = {'Overdamped', 'Critical', 'Oscillatory'};
 colors = {[0.85, 0.33, 0.1], [0.47, 0.67, 0.19], [0, 0.45, 0.74]}; 
 
@@ -73,7 +73,7 @@ for i = 1:3
     
     % Mask Lower Triangle
     G_cos(tril(true(size(G_cos)), -1)) = NaN;
-    lags = linspace(0, 25, length(u1));
+    lags = linspace(0, 45, length(u1));
 
     % --- DRAW ARROWS ---
     ax_pos = get(ax_main, 'Position');
@@ -174,7 +174,7 @@ function [kappa, u1, u2] = calc_dynamics(omega, Sigma, Sigma_w)
     Delta = trace(Atilde)^2 - 4*det(Atilde);
     
     d = diag(inv(Sigma));
-    lags = linspace(0, 25, 300);
+    lags = linspace(0, 45, 300);
 
     if abs(Delta) < 1e-5 % Critical
         u1 = sqrt(2) * ones(size(lags));
