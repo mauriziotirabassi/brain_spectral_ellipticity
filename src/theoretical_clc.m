@@ -1,30 +1,50 @@
 clear; clc; %close all
 rng(42);
 
+% set(groot, 'defaultTextInterpreter', 'latex');
+% set(groot, 'defaultAxesTickLabelInterpreter', 'latex');
+% set(groot, 'defaultLegendInterpreter', 'latex');
+
 n = 2; Sigma_w = eye(n);
 
-% Sigma = I; % scalar
-Sigma = diag([1 40]); % diagonal
+% Sigma = eye(n); % scalar
+Sigma = diag([1 10]); % diagonal
 % Sigma = [2 0.6 0.3; 0.6 1.5 0.5; 0.3 0.5 1.8]; % full
 
-omega = 1.8;
-S = omega * [0 1; -1 0]; % 2D
-% S = omega * [0 -1 0; 1 0 0; 0 0 0]; % 3D
+d = diag(inv(Sigma)); sigma_w_scalar = 1; alpha = (sigma_w_scalar .* d) / 2; 
+w_crit = abs(alpha(1) - alpha(2)) / (2 * sqrt(d(1)*d(2)));
+
+omega = w_crit;
+S = omega * skewone(n);
+% S = omega * buildS(n, 'hub');
 % S = omega * [0 -1  .2 -.3; 1  0 -.4  .5; -.2 .4  0 -.6; .3 -.5 .6  0]; % 4D
 % S = omega * [0 1 0 0 0; -1 0 0 0 0; 0 0 0 1 0; 0 0 -1 0 0; 0 0 0 0 0]; % 5D
 
+% w1 = 1; w2 = 2;
+% w1 = 3; w2 = 3.5;
+% w1 = 1; w2 = sqrt(5);
+% S = [0  w1 0  0; 
+%     -w1 0  0  0; 
+%      0  0  0  w2; 
+%      0  0 -w2 0];
+% Scramble S to make complex topology, CLC will look like the independent
+% modes case anyway.
+% [Q, ~] = qr(randn(n)); S = Q * S * Q';
+
 A = (-0.5 * Sigma_w + S) / Sigma;
 
-[~, T] = schur(A, 'real');
+% [~, T] = schur(A, 'real');
 
-S_half = sqrtm(Sigma);             
-Atilde = inv(S_half) * A * S_half;
+S_half = sqrtm(Sigma);
+Atilde = inv(S_half) * A * S_half; 
+mu = trace(Atilde)/2;
+gammaJ = Atilde - mu*eye(n);
+Delta = trace(Atilde)^2 - 4 * det(Atilde);
+gamma = sqrt(abs(Delta))/2;
+J = gammaJ ./ gamma;
 
 % % DYNAMIC ANISOTROPY INDEX (DAI)
-mu = trace(Atilde) / 2; Delta = trace(Atilde)^2 - 4 * det(Atilde);
-gamma = sqrt(abs(Delta)) / 2;
-J = (Atilde - mu * eye(2)) / gamma;
-kappa = trace(J' * J);
+kappa = 0.5 * trace(J' * J);
 disp(['Delta = ', num2str(Delta)]);
 disp(['Kappa = ', num2str(kappa)]);
 
@@ -45,7 +65,7 @@ disp(['Kappa = ', num2str(kappa)]);
 % disp(kappa_spec(:));
 
 % TIME-LAGGED AUTO/CROSS-COVARIANCE & CORRELATION FUNCTIONS
-lastLag = 50; numLags = 500;
+lastLag = 25; numLags = 500;
 lags = linspace(0, lastLag, numLags + 1);
 % lags = linspace(-lastLag, lastLag, numLags + 1);
 
@@ -62,20 +82,25 @@ stds_th = sqrt(diag(Sigma));
 normMat_th = stds_th * stds_th.';
 Corr_th = Cov_th ./ normMat_th;
 
-X = reshape(Corr_th, [], size(Corr_th, 3)); % data matrix
+X = reshape(Corr_th, [], size(Corr_th, 3)); % Data matrix
 
 % CROSS-LAG COVARIANCE (COSINE SIMILARITY)
 X_cos = X ./ vecnorm(X, 2, 1); G_cos = X_cos' * X_cos;
 G_cos(tril(true(size(G_cos)), -1)) = NaN;
 
-figure, tiledlayout(1, 2, 'TileSpacing','compact','Padding','compact');
-nexttile, stackedplot(lags, X_cos.');
-title('L2-Normalized Auto/Cross-Covariance Functions'), xlabel('\tau')
-nexttile, h = imagesc(lags, lags, G_cos);
-axis square; colormap(magma); colorbar, %clim([-1 1]); % clim(clims)
-xlabel('\tau_1'); set(h, 'AlphaData', ~isnan(G_cos)); ylabel('\tau_2');
+figure('Color', 'w'); tiledlayout(1, 2, 'TileSpacing', 'compact');
+nexttile, [r, c] = ind2sub([n, n], 1:n^2);
+lbls = "\rho_{" + r + c + "}"; n_limit = min(n^2, 25);
+s = stackedplot(lags, X_cos(1:n_limit, :).', 'DisplayLabels', lbls(1:n_limit), ...
+    'LineWidth', 1.2, 'GridVisible', 'on');
+title('Data Marix $X$'), xlabel('\tau'), s.FontSize = 12;
+
+nexttile, imagesc(lags, lags, G_cos, 'AlphaData', ~isnan(G_cos));
+axis square; colormap(magma); colorbar; clim([-1, 1])
+title('Cross-Lag Covariance $X^\top X$', 'Interpreter', 'latex', 'FontSize', 15);
+xlabel('$\tau_k$', 'Interpreter', 'latex', 'FontSize', 15);
+ylabel('$\tau_\ell$', 'Interpreter', 'latex', 'FontSize', 15);
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right');
-title(sprintf('Cosine Similarity'))
 
 % [U_cos, ~, V_cos] = svd(X_cos, 'econ');
 % figure, tiledlayout(3, 1, 'TileSpacing','compact','Padding','compact');
@@ -84,7 +109,7 @@ title(sprintf('Cosine Similarity'))
 %     grid on; xlabel('\tau'); title(sprintf('Cosine mode %d', r));
 % end
 
-showtop(S);
+% showtop(S);
 
 %%
 
@@ -104,8 +129,6 @@ u1 = sqrt(2) * C; u2 = sqrt(kappa) * S; % lag vector
 
 figure, plot(u1, u2,'b-','LineWidth', 1); hold on
 plot(-u1, u2, 'b--', 'LineWidth', 1);
-plot(u1(1), u2(1), 'go','MarkerFaceColor', 'g'); % start
-plot(u1(end), u2(end), 'ro','MarkerFaceColor', 'r'); % end
 axis equal; grid on;
 xlabel('$u_1 = \sqrt2\,C(\gamma\tau)$', 'Interpreter', 'latex');
 ylabel('$u_2 = \sqrt\kappa\,S(\gamma\tau)$', 'Interpreter', 'latex');
@@ -113,8 +136,40 @@ ylabel('$u_2 = \sqrt\kappa\,S(\gamma\tau)$', 'Interpreter', 'latex');
 %        ',\ \Delta = ', num2str(Delta), ...
 %        ',\ \kappa = ', num2str(kappa), '$'], 'Interpreter', 'latex');
 
+function S = skewone(n)
+    U = triu(ones(n), 1); S = U - U';
+end
+
 function showtop(S)
     G = digraph(S);
     figure; h = plot(G, 'Layout','circle', 'EdgeLabel',G.Edges.Weight);
     h.LineWidth = abs(G.Edges.Weight)/max(abs(G.Edges.Weight));
+end
+
+function S = buildS(n, topology)
+%BUILD S Construct skew-symmetric adjacency matrix S
+%   n        : number of nodes
+%   topology : 'chain', 'ring', 'hub'
+
+S = zeros(n);
+switch lower(topology)
+    case 'chain'  % chain
+        for i = 1:n-1
+            S(i,i+1) = 1;
+            S(i+1,i) = -1;
+        end
+    case 'ring'
+        for i = 1:n
+            j = mod(i,n) + 1;
+            S(i,j) = 1;
+            S(j,i) = -1;
+        end
+    case 'hub'
+        for j = 2:n
+            S(1,j) = 1;
+            S(j,1) = -1;
+        end
+    otherwise
+        error('Unknown topology: %s', topology)
+end
 end

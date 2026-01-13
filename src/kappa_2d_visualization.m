@@ -11,7 +11,7 @@ alpha = (sigma_w_scalar .* d) / 2;
 w_crit = abs(alpha(1) - alpha(2)) / (2 * sqrt(d(1)*d(2)));
 
 % Define the 3 Test Cases
-omegas_cases = [0.2 * w_crit, w_crit, 1.6 * w_crit];
+omegas_cases = [1.3 * w_crit, 1.7 * w_crit, 3.2 * w_crit];
 titles = {'Overdamped', 'Critical', 'Oscillatory'};
 colors = {[0.85, 0.33, 0.1], [0.47, 0.67, 0.19], [0, 0.45, 0.74]}; 
 
