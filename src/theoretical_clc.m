@@ -8,13 +8,14 @@ rng(42);
 n = 2; Sigma_w = eye(n);
 
 % Sigma = eye(n); % scalar
-Sigma = diag([1 10]); % diagonal
+% Sigma = diag([1 10]); % diagonal
+Sigma = [1 0.6; 0.6 10]; % full
 % Sigma = [2 0.6 0.3; 0.6 1.5 0.5; 0.3 0.5 1.8]; % full
 
-d = diag(inv(Sigma)); sigma_w_scalar = 1; alpha = (sigma_w_scalar .* d) / 2; 
-w_crit = abs(alpha(1) - alpha(2)) / (2 * sqrt(d(1)*d(2)));
+% d = diag(inv(Sigma)); sigma_w_scalar = 1; alpha = (sigma_w_scalar .* d) / 2; 
+% w_crit = abs(alpha(1) - alpha(2)) / (2 * sqrt(d(1)*d(2)));
 
-omega = w_crit;
+omega = 1;
 S = omega * skewone(n);
 % S = omega * buildS(n, 'hub');
 % S = omega * [0 -1  .2 -.3; 1  0 -.4  .5; -.2 .4  0 -.6; .3 -.5 .6  0]; % 4D
