@@ -1,14 +1,14 @@
 clear all; clc
 
 % --- Parameters ---
-clusterCol = 'Region'; 
+clusterCol = 'Network'; 
 dataDir = fullfile(pwd,'data');
 outDir  = fullfile(dataDir,'regressed_001_01_sim62131');
 
 % --- Load Data ---
 d = dir(fullfile(outDir,'*.mat')); 
 files = {d.name};
-iSub = 14; 
+iSub = 10; 
 subj = load(fullfile(outDir,files{iSub}));
 
 A = subj.A; 
@@ -33,7 +33,7 @@ W_real_mat = results.Real.node_weights;
 W_osc_total = sum(W_osc_mat, 2); 
 W_real_total = sum(W_real_mat, 2);
 W_total_reconstructed = W_osc_total + W_real_total;
-O_i = W_osc_total ./ W_total_reconstructed;
+% O_i = W_osc_total ./ W_total_reconstructed;
 
 % --- Participation Ratio (Mode Spatial Extent) ---
 PR_modes = (sum(W_osc_mat, 1).^2) ./ (n * sum(W_osc_mat.^2, 1)); 
@@ -53,6 +53,7 @@ E_C_modes = zeros(n_clust, length(kappas));
 for i = 1:n_clust
     idx = node_labels == u_clusters(i);
     
+    % Region oscillatory fraction
     cluster_osc_energy = sum(W_osc_total(idx));
     cluster_total_energy = sum(W_total_reconstructed(idx));
     O_C(i) = cluster_osc_energy / cluster_total_energy;
@@ -60,13 +61,14 @@ for i = 1:n_clust
     mode_energies = sum(W_osc_mat(idx, :), 1);
     E_C_modes(i, :) = mode_energies; 
     
+    % Region modal diversity (oscillatory fraction)
     num = sum(mode_energies)^2;
     den = length(mode_energies) * sum(mode_energies.^2);
     PR_C(i) = num / den;
     
-    p_C = mode_energies / sum(mode_energies); 
-    mu_C(i)    = sum(p_C .* log_kappas');
-    sigma_C(i) = sqrt(sum(p_C .* (log_kappas' - mu_C(i)).^2));
+    eta_C = mode_energies / sum(mode_energies); % Region spectral profile
+    mu_C(i)    = sum(eta_C .* log_kappas'); % Region (weighted) mean non-normality
+    sigma_C(i) = sqrt(sum(eta_C .* (log_kappas' - mu_C(i)).^2)); % Region (weighted) non-normality std
 end
 
 % --- Text Output ---
@@ -98,42 +100,45 @@ tick_indices = round(linspace(1, n_modes, num_ticks));
 tick_labels = round(sorted_logK(tick_indices), 1); 
 xLabelHeat = 'Low Frequency $\leftarrow \rightarrow$ High Frequency (Values: $\log \kappa$)';
 
-% --- TILE 1: Instability Spectrum (Scatter) ---
+% --- Updated TILE 1: Dynamical Landscape (Energy Scaled) ---
+E_global_modes = sum(W_osc_mat, 1); 
+marker_sizes = 50 + (500 * (E_global_modes(sort_idx) / max(E_global_modes)));
 nexttile([1 2]);
-scatter(sorted_freqs, sorted_logK, 70, sorted_PR_modes, 'filled');
+scatter(sorted_freqs, sorted_logK, marker_sizes, sorted_PR_modes, 'filled', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 0.5);
 xlabel('Frequency (Hz)', 'Interpreter', 'latex'); 
-ylabel('Instability ($\log \kappa$)', 'Interpreter', 'latex');
-title('Global Mode Instability: Which drivers are most unstable?', 'Interpreter', 'latex');
+ylabel('Integration Capacity ($\log \kappa$)', 'Interpreter', 'latex');
+title('\textbf{Dynamical Landscape}: Size = Mode Energy, Color = Spatial Reach ($PR$)', 'Interpreter', 'latex');
 grid on; box on; 
 c1 = colorbar;
-c1.Label.String = 'Spatial Extent (Mode PR)';
+c1.Label.String = 'Spatial Reach ($PR$)';
 c1.Label.Interpreter = 'latex';
-clim([0 1]); 
+clim([0 1]);
 
-% --- TILE 3: Spectral Profile (Heatmap Eta) ---
+% --- TILE 2: Spectral Profile (Heatmap Eta) ---
 nexttile([1 2]);
 imagesc(sorted_Eta_C);
 set(gca, 'YDir', 'normal'); 
 c4 = colorbar;
-c4.Label.String = 'Composition $\eta$';
+c4.Label.String = '$\eta$';
 c4.Label.Interpreter = 'latex';
 clim([0 max(sorted_Eta_C(:))]); 
-title('Cluster Spectral Profile: Which mode dominates a specific cluster?', 'Interpreter', 'latex');
+title('Region Spectral Profile: How much does a mode drive a region?', 'Interpreter', 'latex');
 xticks(tick_indices);
 xticklabels(string(tick_labels));
 xlabel(xLabelHeat, 'Interpreter', 'latex');
 yticks(1:n_clust);
 yticklabels(u_clusters);
 
-% --- TILE 2: Mode Topography (Heatmap Rho) ---
+% --- TILE 3: Mode Topography (Heatmap Rho) ---
 nexttile([1 2]);
 imagesc(sorted_Rho_C);
 set(gca, 'YDir', 'normal'); 
 c2 = colorbar;
-c2.Label.String = 'Spatial Share $\rho$';
+c2.Label.String = '$\rho$';
 c2.Label.Interpreter = 'latex';
 clim([0 max(sorted_Rho_C(:))]); 
-title('Mode Spatial Topography: Which cluster contributes most to a specific mode?', 'Interpreter', 'latex');
+title('Mode Spatial Topography: How much does a region contribute to a mode?', 'Interpreter', 'latex');
 xticks(tick_indices);
 xticklabels(string(tick_labels));
 xlabel(xLabelHeat, 'Interpreter', 'latex');
@@ -148,10 +153,10 @@ b.CData = PR_C;
 yticks(1:n_clust);
 yticklabels(u_clusters);
 xlabel('Oscillatory Fraction ($O_{\mathcal{C}}$)', 'Interpreter', 'latex');
-title('Cluster Oscillatory Fraction: Is this region oscillatory?', 'Interpreter', 'latex');
+title('Region Oscillatory Fraction: How much is a region oscillatory?', 'Interpreter', 'latex');
 xlim([0 1]); 
 grid on;
 c3 = colorbar;
-c3.Label.String = 'Modal Diversity (Cluster PR)';
+c3.Label.String = 'Region Modal Diversity (Participation Ratio)';
 c3.Label.Interpreter = 'latex';
 clim([0 1]);
