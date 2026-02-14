@@ -8,7 +8,7 @@ outDir  = fullfile(dataDir,'regressed_001_01_sim62131');
 % --- Load Data ---
 d = dir(fullfile(outDir,'*.mat')); 
 files = {d.name};
-iSub = 10; 
+iSub = 1; 
 subj = load(fullfile(outDir,files{iSub}));
 
 A = subj.A; 
@@ -85,7 +85,9 @@ sorted_PR_modes = PR_modes(sort_idx);
 Rho_C_mat = E_C_modes ./ sum(E_C_modes, 1); 
 sorted_Rho_C = Rho_C_mat(:, sort_idx);
 
-Eta_C_mat = E_C_modes ./ sum(E_C_modes, 2); 
+% Eta_C_mat = E_C_modes ./ sum(E_C_modes, 2); 
+E_C_weighted = E_C_modes .* reshape(log_kappas, 1, []);
+Eta_C_mat = E_C_weighted ./ sum(E_C_weighted, 2); % Weighted by \log\kappa
 sorted_Eta_C = Eta_C_mat(:, sort_idx);
 
 %% --- Visualization ---

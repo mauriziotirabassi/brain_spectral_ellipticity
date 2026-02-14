@@ -1,7 +1,7 @@
 % ANALYZE_FEATURES
 % Statistical profiling of spectral features to identify Invariants vs. Discriminators.
 
-clear; clc; % close all;
+clear all; clc; % close all;
 
 % --- 1. Settings & Data Generation ---
 dataDir = fullfile(pwd, 'data');
