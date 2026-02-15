@@ -35,6 +35,10 @@ function T_final = create_dataset_v2(dataDir, clusterCol)
         W_osc = W_osc(:, freq_idx);
         kappas = kappas(freq_idx);
 
+        % Calculate max entropy (log K) for normalization
+        K = length(kappas);
+        max_H = log(K);
+
         % Initialize row struct for this subject
         row = struct();
         row.SubjectID = i;
@@ -51,13 +55,21 @@ function T_final = create_dataset_v2(dataDir, clusterCol)
 
             % 1. Criticality Distribution (instability-weighted)
             crit_values = eta .* log(kappas');   
-            crit_norm = crit_values / (sum(crit_values) + eps); 
-            row.(sprintf('%s_Entropy_Crit', clean_name)) = -sum(crit_norm .* log(crit_norm + eps));
+            crit_sum = sum(crit_values);
+            crit_norm = crit_values / (crit_sum + eps); 
+
+            H_raw_crit = -sum(crit_norm .* log(crit_norm + eps));
+            row.(sprintf('%s_Sum_Crit', clean_name)) = crit_sum;
+            row.(sprintf('%s_EntropyW_Crit', clean_name)) = H_raw_crit / (max_H + eps);
 
             % 2. Coherence Distribution (stability-weighted)
-            coh_values = eta ./ (kappas' + eps);        
-            coh_norm = coh_values / (sum(coh_values) + eps); 
-            row.(sprintf('%s_Entropy_Coh', clean_name)) = -sum(coh_norm .* log(coh_norm + eps));
+            coh_values = eta ./ (kappas' + eps);       
+            coh_sum = sum(coh_values);
+            coh_norm = coh_values / (coh_sum + eps); 
+
+            H_raw_coh = -sum(coh_norm .* log(coh_norm + eps));
+            row.(sprintf('%s_Sum_Coh', clean_name)) = coh_sum;
+            row.(sprintf('%s_EntropyW_Coh', clean_name)) = H_raw_coh / (max_H + eps);
         end
         
         rows_cell{i} = row;
