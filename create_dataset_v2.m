@@ -1,8 +1,7 @@
 function T_final = create_dataset_v2(dataDir, clusterCol)
-% CREATE_DATASET_V2 Generates a dataset with regional entropy for criticality 
-% and coherence distributions. This is the conservative version focusing 
-% exclusively on dynamical complexity.
-
+% CREATE_DATASET_V2 Generates a dataset with regional entropy, weighted sum, 
+% and weighted variance for ellipticity distributions.
+    
     % --- 1. Setup ---
     outDir = fullfile(dataDir, 'regressed_001_01_sim62131');
     T_table = readtable(fullfile(dataDir, 'names.xlsx'), 'VariableNamingRule', 'preserve');
@@ -17,7 +16,7 @@ function T_final = create_dataset_v2(dataDir, clusterCol)
     
     rows_cell = cell(n_subj, 1); 
     fprintf('Processing %d subjects...\n', n_subj);
-
+    
     % --- 2. Main Loop over subjects ---
     for i = 1:n_subj
         % Load subject data
@@ -34,47 +33,53 @@ function T_final = create_dataset_v2(dataDir, clusterCol)
         [~, freq_idx] = sort(res.Oscillatory.frequencies); 
         W_osc = W_osc(:, freq_idx);
         kappas = kappas(freq_idx);
-
+        
+        % Pre-calculate log(kappa) vector
+        log_k = log(kappas'); 
+        
         % Calculate max entropy (log K) for normalization
         K = length(kappas);
         max_H = log(K);
-
+        
         % Initialize row struct for this subject
         row = struct();
         row.SubjectID = i;
-
+        
         % --- Loop over clusters ---
         for c = 1:n_clust
             raw_name = u_clusters(c);
             clean_name = matlab.lang.makeValidName(raw_name);
             node_idx = node_labels == raw_name;
-
-            % Extract energy distribution over modes for this cluster
+            
+            % Extract energy distribution (eta)
             E_modes = sum(W_osc(node_idx, :), 1); 
             eta = E_modes / (sum(E_modes) + eps); 
-
-            % 1. Criticality Distribution (instability-weighted)
-            crit_values = eta .* log(kappas');   
-            crit_sum = sum(crit_values);
-            crit_norm = crit_values / (crit_sum + eps); 
-
-            H_raw_crit = -sum(crit_norm .* log(crit_norm + eps));
-            row.(sprintf('%s_Sum_Crit', clean_name)) = crit_sum;
-            row.(sprintf('%s_EntropyW_Crit', clean_name)) = H_raw_crit / (max_H + eps);
-
-            % 2. Coherence Distribution (stability-weighted)
-            coh_values = eta ./ (kappas' + eps);       
-            coh_sum = sum(coh_values);
-            coh_norm = coh_values / (coh_sum + eps); 
-
-            H_raw_coh = -sum(coh_norm .* log(coh_norm + eps));
-            row.(sprintf('%s_Sum_Coh', clean_name)) = coh_sum;
-            row.(sprintf('%s_EntropyW_Coh', clean_name)) = H_raw_coh / (max_H + eps);
+            
+            % --- Ellipticity Metrics ---
+            
+            % 1. Weighted Sum (Mean Ellipticity)
+            % Contribution of each mode to the region's ellipticity
+            ellip_contrib = eta .* log_k;   
+            ellip_w_sum = sum(ellip_contrib);
+            
+            % 2. Weighted Variance (Dynamical Diversity)
+            % Variance of log(kappa) weighted by energy (eta)
+            ellip_var = sum(eta .* (log_k - ellip_w_sum).^2);
+            
+            % 3. Normalized Entropy
+            % Normalize contributions into a PMF
+            ellip_dist_norm = ellip_contrib / (ellip_w_sum + eps); 
+            H_raw = -sum(ellip_dist_norm .* log(ellip_dist_norm + eps));
+            
+            % Store results
+            row.(sprintf('%s_SumW', clean_name)) = ellip_w_sum;
+            row.(sprintf('%s_VarW', clean_name)) = ellip_var;
+            row.(sprintf('%s_EntropyN', clean_name)) = H_raw / (max_H + eps);
         end
         
         rows_cell{i} = row;
     end
-
+    
     % --- 3. Convert to table ---
     T_final = struct2table([rows_cell{:}], 'AsArray', true);
     fprintf('Done. Dataset: %d subjects x %d features.\n', n_subj, width(T_final));
