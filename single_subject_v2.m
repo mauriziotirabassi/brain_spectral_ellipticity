@@ -1,5 +1,5 @@
 clear all; clc
-iSub = 5;
+iSub = 7;
 
 % --- 1. SETUP ---
 clusterCol = 'Macro_Area'; % Macro_Area or Functional_Network
@@ -81,7 +81,7 @@ ax2 = nexttile([2 2]);
 imagesc(H_mat_Ell); 
 set(gca, 'YDir', 'normal');
 yticks(1:n_clust); yticklabels(u_clusters);
-title('\textbf{Oscillatory Criticality} ($\eta \cdot \log \kappa$)', 'Interpreter','latex');
+title('\textbf{Ellipticity Contribution} ($\eta \log \kappa$)', 'Interpreter','latex');
 c2 = colorbar;
 colormap(ax2, magma);
 xlabel('Frequency (Hz)', 'Interpreter','latex'); 
