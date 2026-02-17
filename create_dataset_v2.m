@@ -12,6 +12,7 @@ function T_final = create_dataset_v2(dataDir, clusterCol)
     
     d = dir(fullfile(outDir, '*.mat'));
     files = {d.name};
+
     n_subj = length(files);
     
     rows_cell = cell(n_subj, 1); 
@@ -66,15 +67,9 @@ function T_final = create_dataset_v2(dataDir, clusterCol)
             % Variance of log(kappa) weighted by energy (eta)
             ellip_var = sum(eta .* (log_k - ellip_w_sum).^2);
             
-            % 3. Normalized Entropy
-            % Normalize contributions into a PMF
-            ellip_dist_norm = ellip_contrib / (ellip_w_sum + eps); 
-            H_raw = -sum(ellip_dist_norm .* log(ellip_dist_norm + eps));
-            
             % Store results
             row.(sprintf('%s_SumW', clean_name)) = ellip_w_sum;
             row.(sprintf('%s_VarW', clean_name)) = ellip_var;
-            row.(sprintf('%s_EntropyN', clean_name)) = H_raw / (max_H + eps);
         end
         
         rows_cell{i} = row;
