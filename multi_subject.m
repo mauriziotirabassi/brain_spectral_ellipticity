@@ -88,8 +88,10 @@ all_subIDs = vertcat(C_subIDs{:});
 figure('Color','w', 'Position', [100 100 800 600]);
 
 % Scatter: Same Magma color, black edges, filled, transparency
-scatter(all_freqs, all_kappas, 200, marker_color, 'filled', ...
+scatter(all_freqs, all_kappas, 75, all_subIDs, 'filled', ...
     'MarkerEdgeColor', 'k', 'MarkerFaceAlpha', 0.6);
+
+colormap(magma)
 
 % Axis Configuration
 set(gca, 'YScale', 'log');           % Logarithmic Y-axis
