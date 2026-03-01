@@ -146,8 +146,8 @@ for i = 1:n_cols
     ax_traj = axes('Position', [pos_x, Y_MID, PANEL_W, PANEL_H]);
     hold(ax_traj, 'on'); box(ax_traj, 'on'); grid(ax_traj, 'on');
     
-    plot(ax_traj, u1, u2, '-', 'Color', dark_color, 'LineWidth', 1.5);
-    plot(ax_traj, u1, -u2, '--', 'Color', dark_color, 'LineWidth', 1.5);
+    plot(ax_traj, u1, u2, '-', 'Color', dark_color, 'LineWidth', 2);
+    plot(ax_traj, u1, -u2, '--', 'Color', dark_color, 'LineWidth', 2);
     
     limit = 1.1 * max(max(abs(u1)), max(abs(u2)));
     if limit == 0, limit = 1; end

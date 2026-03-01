@@ -4,8 +4,8 @@ rng(42);
 % --- Control Panel ---
 % Parameters 
 alpha1  = 1;     
-alpha2  = 1.1;     
-gamma   = 2.2;     
+alpha2  = 3;     
+gamma   = 0.5;     
 omega   = 1.5;   
 
 % Visualization Settings
@@ -67,7 +67,7 @@ for i = 1:4
     yline(0, '-', 'Color', color_grid, 'LineWidth', 0.5); 
     
     % Data Plot
-    plot(lags, X_cos(i, :), 'LineWidth', 1.2, 'Color', dark_magma);
+    plot(lags, X_cos(i, :), 'LineWidth', 2, 'Color', dark_magma);
     
     % --- MANUAL SIGMA LABELS (Bypassing ylabel threshold) ---
     text(sigma_x_pos_knob, 0.5, tlc_labels(i), 'Units', 'normalized', ...
@@ -78,10 +78,10 @@ for i = 1:4
     y_min_padded = min(X_cos(i, :)) - 0.25; 
     y_max_padded = max(X_cos(i, :)) + 0.25;
     ylim([y_min_padded, y_max_padded]);
-    % ylim([-1.25, 1.25]);
+    ylim([-1.25, 1.25]);
 
-    raw_yticks = linspace(y_min_padded, y_max_padded, 4);
-    yticks(round(raw_yticks, 1));
+    % raw_yticks = linspace(y_min_padded, y_max_padded, 4);
+    % yticks(round(raw_yticks, 1));
 
     box off;
     set(gca, 'FontSize', tick_font_size);
@@ -97,7 +97,7 @@ for i = 1:4
     
     % --- Add the 'A' Label to Top Plot ---
     if i == 1
-        text(-0.15, ab_y_pos_knob, '\textbf{B}', 'Units', 'normalized', 'Interpreter', 'latex', ...
+        text(-0.15, ab_y_pos_knob, '\textbf{A}', 'Units', 'normalized', 'Interpreter', 'latex', ...
              'FontSize', label_font_size+4, 'Clipping', 'off');
     end
 end

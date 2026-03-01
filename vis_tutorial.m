@@ -15,6 +15,7 @@ sigma_font_adder  = 1;    % Knob: Manual adder for Sigma labels
 tau_label_y_knob  = -1; 
 ab_y_pos_knob     = 1;  
 sigma_x_pos_knob  = -0.08; % Knob: Horizontal position of Sigma labels (Normalized)
+linew = 3;
 
 color_tau_l       = [1, 0, 0];    
 color_tau_k       = [0, 0, 1];    
@@ -75,10 +76,10 @@ for i = 1:4
     end
     yline(0, '-', 'Color', color_grid, 'LineWidth', 0.5); 
     
-    xline(val_tau_l, '--', 'Color', color_tau_l, 'LineWidth', 1.5);
-    xline(val_tau_k, '--', 'Color', color_tau_k, 'LineWidth', 1.5);
+    xline(val_tau_l, '--', 'Color', color_tau_l, 'LineWidth', linew);
+    xline(val_tau_k, '--', 'Color', color_tau_k, 'LineWidth', linew);
     
-    plot(lags, X_cos(i, :), 'LineWidth', 1.2, 'Color', dark_magma);
+    plot(lags, X_cos(i, :), 'LineWidth', 2, 'Color', dark_magma);
     
     % --- MANUAL SIGMA LABELS (Bypassing ylabel threshold) ---
     text(sigma_x_pos_knob, 0.5, tlc_labels(i), 'Units', 'normalized', ...
@@ -123,12 +124,12 @@ clim([-1, 1]);
 hold on; 
 
 gap = 0.25; 
-line([val_tau_k, val_tau_k], [0, val_tau_l - gap], 'Color', color_tau_k, 'LineStyle', '--', 'LineWidth', 1.5);
-line([val_tau_k, val_tau_k], [val_tau_l + gap, lastLag], 'Color', color_tau_k, 'LineStyle', '--', 'LineWidth', 1.5);
-line([0, val_tau_k - gap], [val_tau_l, val_tau_l], 'Color', color_tau_l, 'LineStyle', '--', 'LineWidth', 1.5);
-line([val_tau_k + gap, lastLag], [val_tau_l, val_tau_l], 'Color', color_tau_l, 'LineStyle', '--', 'LineWidth', 1.5);
+line([val_tau_k, val_tau_k], [0, val_tau_l - gap], 'Color', color_tau_k, 'LineStyle', '--', 'LineWidth', linew);
+line([val_tau_k, val_tau_k], [val_tau_l + gap, lastLag], 'Color', color_tau_k, 'LineStyle', '--', 'LineWidth', linew);
+line([0, val_tau_k - gap], [val_tau_l, val_tau_l], 'Color', color_tau_l, 'LineStyle', '--', 'LineWidth', linew);
+line([val_tau_k + gap, lastLag], [val_tau_l, val_tau_l], 'Color', color_tau_l, 'LineStyle', '--', 'LineWidth', linew);
 
-plot(val_tau_k, val_tau_l, 'o', 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'k', 'LineWidth', 1.2, 'MarkerSize', 10);
+plot(val_tau_k, val_tau_l, 'o', 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'k', 'LineWidth', linew, 'MarkerSize', 15);
 
 set(gca, 'XAxisLocation', 'top', 'YAxisLocation', 'right', 'YDir', 'reverse');
 set(gca, 'FontSize', tick_font_size);
