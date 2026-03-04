@@ -59,6 +59,7 @@ function results = get_kappa_spectrum(A, Sw)
     osc.omegas       = [];
     osc.decay_rates  = [];
     osc.frequencies  = [];
+    osc.deltas       = [];
     osc.eigenvalues  = [];
     osc.node_weights = []; % Dimensions: [N x M_osc]
     
@@ -87,6 +88,7 @@ function results = get_kappa_spectrum(A, Sw)
             osc.kappas(end+1, 1)      = props.kappa;
             osc.omegas(end+1, 1)      = props.omega;
             osc.decay_rates(end+1, 1) = props.mu;
+            osc.deltas(end+1, 1)      = props.delta;
             osc.frequencies(end+1, 1) = props.frequency;
             osc.eigenvalues(end+1, 1) = eigs(1); % Store one of the pair
             
