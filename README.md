@@ -61,4 +61,4 @@ Contains support files necessary for the analysis:
     Navigate to the `figures/` folder and run the specific script for the desired figure (e.g., `vis_global`).
 
 ## Credits
-* The `magma` colormap used in these visualizations is provided by [Timothy E. Sipkens](https://github.com/tsipkens/cmap).
+* The `magma` colormap used in these visualizations is provided by [Timothy Sipkens](https://github.com/tsipkens/cmap).
