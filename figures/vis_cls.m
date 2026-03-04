@@ -4,8 +4,8 @@ rng(42);
 % --- Control Panel ---
 % Parameters 
 alpha1  = 1;     
-alpha2  = 3;     
-gamma   = 0.5;     
+alpha2  = 1;     
+gamma   = 0;     
 omega   = 1.5;   
 
 % Visualization Settings
@@ -78,7 +78,7 @@ for i = 1:4
     y_min_padded = min(X_cos(i, :)) - 0.25; 
     y_max_padded = max(X_cos(i, :)) + 0.25;
     ylim([y_min_padded, y_max_padded]);
-    ylim([-1.25, 1.25]);
+    % ylim([-1.25, 1.25]);
 
     % raw_yticks = linspace(y_min_padded, y_max_padded, 4);
     % yticks(round(raw_yticks, 1));

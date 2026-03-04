@@ -1,4 +1,5 @@
 clear all; clc
+
 % --- 1. CONFIGURATION ---
 subjects_to_plot = [19, 10]; 
 clusterCol = 'Macro_Area'; 
@@ -7,13 +8,16 @@ outDir = fullfile(dataDir, 'regressed_001_01_sim62131');
 T_names = readtable(fullfile(dataDir, 'names.xlsx'), 'VariableNamingRule', 'preserve');
 u_clusters = unique(string(T_names.(clusterCol)));
 n_clust = length(u_clusters);
+
 % Graphics Settings
 f_size_lbl = 18;  
 f_size_ax = 18;   
 label_font_size = 24; 
+
 % Figure Size (Single Subject)
 fig_w = 1100;
 fig_h = 700; 
+
 % --- 2. MAIN LOOP (ONE FIGURE PER SUBJECT) ---
 for s_idx = 1:length(subjects_to_plot)
     iSub = subjects_to_plot(s_idx);

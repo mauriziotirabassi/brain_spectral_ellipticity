@@ -1,117 +1,69 @@
 function T_final = create_dataset(dataDir, clusterCol)
-% CREATE_DATASET Generates a feature matrix.
+% CREATE_DATASET Generates a dataset with weighted sum and weighted variance 
+% for ellipticity distributions.
 
-    % --- 1. Setup ---
+    % Setup
     outDir = fullfile(dataDir, 'regressed_001_01_sim62131');
-    T_table = readtable(fullfile(dataDir, 'names.xlsx'), 'VariableNamingRule', 'preserve');
+    T_names = readtable(fullfile(dataDir, 'names.xlsx'), 'VariableNamingRule', 'preserve');
     
-    node_labels = string(T_table.(clusterCol));
+    node_labels = string(T_names.(clusterCol));
     u_clusters = unique(node_labels);
+    n_clust = length(u_clusters);
     
-    d = dir(fullfile(outDir, '*.mat'));
-    files = {d.name};
+    fileList = dir(fullfile(outDir, '*.mat'));
+    files = {fileList.name};
     n_subj = length(files);
     
     rows_cell = cell(n_subj, 1); 
-    
     fprintf('Processing %d subjects...\n', n_subj);
-
-    % --- 2. Main Loop ---
+    
+    % Process subjects
     for i = 1:n_subj
-        % Load Data
+        % Load subject data
         subj = load(fullfile(outDir, files{i}));
         A = subj.A;
         Sigma_w = eye(size(A,1)) * subj.output.eff_conn.NoiseVar;
         
-        % Spectral Decomposition
-        res = get_kappa_spectrum(A, Sigma_w);
-        W_osc = res.Oscillatory.node_weights; 
-        log_K = log(res.Oscillatory.kappas); 
+        % Spectral decomposition
+        results = get_kappa_spectrum(A, Sigma_w);
+        W_osc = results.Oscillatory.node_weights; 
+        kappas = results.Oscillatory.kappas;      
         
-        % Pre-calculations
-        W_osc_tot = sum(W_osc, 2);
-        W_tot_recon = W_osc_tot + sum(res.Real.node_weights, 2);
+        % Sort by frequency
+        [~, freq_idx] = sort(results.Oscillatory.frequencies); 
+        W_osc = W_osc(:, freq_idx);
+        kappas = kappas(freq_idx);
+        log_k = log(kappas'); 
         
-        % Global Stats
-        E_modes_glob = sum(W_osc, 1);      
-        p_modes_glob = E_modes_glob / sum(E_modes_glob); 
+        % Initialize subject container
+        subjStruct = struct();
+        subjStruct.SubjectID = i;
         
-        % Topological Matrices
-        Rho = W_osc ./ sum(W_osc, 1); 
-        Eta = W_osc ./ sum(W_osc, 2); 
-
-        % --- 3. Build Subject Row ---
-        row = struct();
-        row.SubjectID = i;
-        
-        % Global Metrics
-        sorted_K = sort(log_K, 'descend');
-        row.Global_MaxK1 = sorted_K(1);
-        row.Global_MaxK2 = sorted_K(2);
-        row.Global_MeanK = mean(log_K);
-        row.Global_MeanK_W = p_modes_glob * log_K; 
-        % TODO: row.Global_Std = sqrt();
-        row.Global_StdK_W = sqrt(p_modes_glob * (log_K - row.Global_MeanK_W).^2);
-
-        % Cluster Metrics
-        for c = 1:length(u_clusters)
-            raw_name = u_clusters(c);
-            clean_name = matlab.lang.makeValidName(raw_name); 
-            idx = node_labels == raw_name; 
+        % Process clusters
+        for c = 1:n_clust
+            clusterName = u_clusters(c);
+            fieldName = matlab.lang.makeValidName(clusterName);
+            node_idx = node_labels == clusterName;
             
-            % --- A. Energy & Diversity ---
-            E_osc_C = sum(W_osc_tot(idx));
-            E_tot_C = sum(W_tot_recon(idx));
+            % Normalized energy distribution (eta)
+            E_modes = sum(W_osc(node_idx, :), 1); 
+            eta = E_modes / (sum(E_modes) + eps); 
             
-            % Raw Oscillatory Energy (The Volume)
-            row.(sprintf('%s_EnergyRaw', clean_name)) = E_osc_C;
-            % TODO: Add weighted oscillatory energy where each oscillatory
-            % mode enegry is weighte dby its \kappa
+            % Weighted mean (Average Ellipticity)
+            ellip_mean = sum(eta .* log_k);
             
-            % Standard Osc Fraction
-            row.(sprintf('%s_OscFrac', clean_name)) = E_osc_C / E_tot_C;
+            % Weighted variance (Ellipticity Dispersion)
+            ellip_var = sum(eta .* (log_k - ellip_mean).^2);
             
-            % Diversity (PR)
-            E_modes_C = sum(W_osc(idx, :), 1); 
-            row.(sprintf('%s_PR', clean_name)) = sum(E_modes_C)^2 / (length(E_modes_C) * sum(E_modes_C.^2));
-            
-            % --- B. Integrator Profile ---
-            p_modes_C = E_modes_C / sum(E_modes_C);
-            mu_C = p_modes_C * log_K;
-            
-            % Instability Load (The Pressure - Total Energy weighted by K)
-            row.(sprintf('%s_EnergyW', clean_name)) = E_modes_C * log_K; 
-            
-            % Instability-Weighted Frequency (The Speed of Chaos)
-            % (Sum(E * logK * f) / Sum(E * logK))
-            weighted_energy_dist = E_modes_C' .* log_K;
-            row.(sprintf('%s_FreqW', clean_name)) = sum(weighted_energy_dist .* freqs) / sum(weighted_energy_dist);
-            
-            row.(sprintf('%s_MeanK', clean_name)) = mu_C;
-            row.(sprintf('%s_StdK', clean_name)) = sqrt(p_modes_C * (log_K - mu_C).^2);
-            
-            % --- C. Topology ---
-            Rho_C_vec = sum(Rho(idx, :), 1); 
-            row.(sprintf('%s_Hubness', clean_name)) = sum(Rho_C_vec);
-            row.(sprintf('%s_Hubness_W', clean_name)) = Rho_C_vec * log_K;
-            
-            Eta_C_vec = sum(Eta(idx, :), 1);
-            row.(sprintf('%s_Dispersion', clean_name)) = gini_coeff(Eta_C_vec);
-            row.(sprintf('%s_Dispersion_W', clean_name)) = gini_coeff(Eta_C_vec' .* log_K);
+            % Store results
+            subjStruct.(sprintf('%s_SumW', fieldName)) = ellip_mean;
+            subjStruct.(sprintf('%s_VarW', fieldName)) = ellip_var;
         end
         
-        rows_cell{i} = row;
+        rows_cell{i} = subjStruct;
     end
     
-    % --- 4. Finalize ---
+    % Final table generation
     T_final = struct2table([rows_cell{:}], 'AsArray', true);
     fprintf('Done. Dataset: %d subjects x %d features.\n', n_subj, width(T_final));
-end
-
-function G = gini_coeff(x)
-    x = abs(x(:));
-    if sum(x) == 0, G = 0; return; end
-    n = length(x);
-    x = sort(x);
-    G = (2 * sum((1:n)' .* x) / (n * sum(x))) - (n + 1) / n;
 end
