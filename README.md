@@ -1,8 +1,8 @@
 
 This repository contains the MATLAB implementation of the framework for analyzing **dynamical tension** in brain networks, as presented in the paper:
 
-> **[A Geometric Analysis of Linear Brain Dynamics: Quantifying the Interplay Between Conservative and Dissipative Forces in State-Space Models of Resting-State fMRI]**
-> *[Maurizio Tirabassi, Danilo Benozzo]*
+> **[Paper Title Here]**
+> *[Author Names Here]*
 > [Journal/Preprint Link]
 
 ## Overview
@@ -16,19 +16,19 @@ These scripts perform the primary analyses described in the Results section of t
 
 * **`subject_analysis.m`**: Performs the spectral decomposition for a single subject. It generates the "Dynamical Landscape" visualization (Scatter plot of frequency vs. ellipticity), the "Ellipticity Contribution" heatmap, and the "Regional Composition" bar chart. You can visualize different subjects by changing the `iSub` variable at the beginning of the script.
 * **`discriminant_analysis.m`**: Performs the cohort-level analysis ($N=20$). It identifies architectural **invariants** (stable features across subjects) and **discriminants** (variable features) and performs the PCA on dynamical diversity.
-* **`get_kappa_spectrum.m`**: The core function of the framework. [cite_start]It calculates the ellipticity spectrum (frequencies, damping rates, and $\kappa$) for a single subject's effective connectivity matrix[cite: 8].
+* **`get_kappa_spectrum.m`**: The core function of the framework. It calculates the ellipticity spectrum (frequencies, damping rates, and $\kappa$) for a single subject's effective connectivity matrix.
 * **`create_dataset.m`**: A helper function that aggregates individual subject results into a structured table for cohort analysis.
 
 ### Figure Reproduction (figures/)
 Scripts dedicated to reproducing specific figures from the manuscript:
 
-* **`figures/vis_whitening.m`**: **Figure 1**. [cite_start]Visualizes the geometric decomposition of the flow field in original vs. whitened frames[cite: 198].
+* **`figures/vis_whitening.m`**: **Figure 1**. Visualizes the geometric decomposition of the flow field in original vs. whitened frames.
 * **`figures/vis_tutorial.m`**: **Figure 2 (Top Row)**. A tutorial visualization of the Cross-Lag Similarity (CLS) matrix in the commutative regime.
-* **`figures/vis_cls.m`**: **Figure 2 / Figure 8**. [cite_start]Plots the Cross-Lag Similarity (CLS) matrices across different dynamical regimes (Oscillatory, Overdamped, Critical)[cite: 309, 1117].
-* **`figures/vis_isochoric.m`**: **Figure 3**. [cite_start]Visualizes the scalar-traceless decomposition of the interaction matrix[cite: 343].
-* **`figures/vis_kappa.m`**: **Figure 4**. [cite_start]Plots the behavior of dynamical tension ($\kappa$) and the lag-vector trajectory across regimes[cite: 417].
-* **`figures/vis_global.m`**: **Figure 5**. [cite_start]Displays the global constraint on dynamical tension, showing the inverse relationship between frequency and maximum ellipticity[cite: 488].
-* **`figures/vis_phenotypes.m`**: **Figure 7**. [cite_start]Visualizes the "Broadband" vs. "Narrowband" dynamical phenotypes (Spectral signatures and spatial maps)[cite: 708].
+* **`figures/vis_cls.m`**: **Figure 2 / Figure 8**. Plots the Cross-Lag Similarity (CLS) matrices across different dynamical regimes (Oscillatory, Overdamped, Critical).
+* **`figures/vis_isochoric.m`**: **Figure 3**. Visualizes the scalar-traceless decomposition of the interaction matrix.
+* **`figures/vis_kappa.m`**: **Figure 4**. Plots the behavior of dynamical tension ($\kappa$) and the lag-vector trajectory across regimes.
+* **`figures/vis_global.m`**: **Figure 5**. Displays the global constraint on dynamical tension, showing the inverse relationship between frequency and maximum ellipticity.
+* **`figures/vis_phenotypes.m`**: **Figure 7**. Visualizes the "Broadband" vs. "Narrowband" dynamical phenotypes (Spectral signatures and spatial maps).
 
 ### Data (data/)
 Contains support files necessary for the analysis:
